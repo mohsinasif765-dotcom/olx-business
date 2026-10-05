@@ -19,7 +19,7 @@ export function useCarPlans() {
     fetch("/api/car-plans", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { plans?: CarPlan[] } | null) => {
-        if (!live || !data || !Array.isArray(data.plans)) return;
+        if (!live || !data || !Array.isArray(data.plans) || data.plans.length === 0) return;
         setPlans(data.plans.map(withLocalPhoto));
       })
       .catch(() => {});

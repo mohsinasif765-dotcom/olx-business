@@ -544,16 +544,18 @@ button:active,
 
 .car-invest {
   display: flex;
-  margin-top: 12px;
-  height: 44px;
+  margin-top: 14px;
+  height: 48px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: #fff;
   background: linear-gradient(90deg, #5b4dff 0%, #8a4dff 50%, #c44dff 100%);
+  box-shadow: 0 8px 18px rgba(90, 70, 255, 0.35);
 }
 
 .pay-card {
