@@ -1,0 +1,101 @@
+export const ACTIVITIES = [
+  {
+    id: "checkin",
+    status: "live" as const,
+    badge: "hot" as const,
+    title: "7-Day Check-in",
+    desc: "Check in every day. Day 7 unlocks a larger USDT bonus.",
+    time: "Long-term",
+    theme: "gold",
+    rewards: ["0.10", "0.12", "0.15", "0.18", "0.22", "0.28", "0.80"],
+    rules: [
+      "Check in once per calendar day.",
+      "Miss a day and the streak returns to Day 1.",
+      "Rewards are credited to your USDT balance (demo).",
+      "Each account can check in on one device.",
+    ],
+  },
+  {
+    id: "lucky",
+    status: "live" as const,
+    badge: "new" as const,
+    title: "Lucky Draw",
+    desc: "Spin once a day for a chance to win extra USDT.",
+    time: "Daily reset 00:00 UTC",
+    theme: "pink",
+    prizes: ["0.10", "0.20", "0.50", "1.00", "2.00", "0.00"],
+    rules: [
+      "One free spin per day.",
+      "Prize is credited after the spin (demo).",
+      "0.00 USDT means a thank-you prize.",
+      "Abnormal accounts may be excluded.",
+    ],
+  },
+  {
+    id: "first-recharge",
+    status: "live" as const,
+    badge: "hot" as const,
+    title: "First Recharge Gift",
+    desc: "Complete your first recharge and receive a starter mining bonus.",
+    time: "Until 31 Oct 2026",
+    theme: "blue",
+    href: "/wallet/select",
+    cta: "goRecharge" as const,
+    rules: [
+      "Valid for the first successful recharge only.",
+      "Minimum recharge follows the selected VIP plan.",
+      "Bonus is issued after the order is confirmed.",
+      "One bonus per account.",
+    ],
+  },
+  {
+    id: "invite",
+    status: "live" as const,
+    badge: "new" as const,
+    title: "Invite & Earn",
+    desc: "Invite friends with your code and share team rebate.",
+    time: "Long-term",
+    theme: "green",
+    href: "/invite",
+    cta: "goInvite" as const,
+    rules: [
+      "Share your invitation code from the Invite page.",
+      "Rebate follows the active VIP mining rebate rate.",
+      "Self-invites are not counted.",
+      "Fraudulent referrals may be removed.",
+    ],
+  },
+  {
+    id: "vip-boost",
+    status: "live" as const,
+    badge: "hot" as const,
+    title: "VIP Upgrade Boost",
+    desc: "Move up a VIP level this month and unlock higher mining income.",
+    time: "1–31 Oct 2026",
+    theme: "purple",
+    href: "/vip",
+    cta: "goVip" as const,
+    rules: [
+      "Upgrade by reaching the plan recharge amount.",
+      "Income starts after the plan is activated.",
+      "Only one VIP plan can be active at a time.",
+      "See the VIP page for full level table.",
+    ],
+  },
+  {
+    id: "launch-week",
+    status: "ended" as const,
+    badge: "ended" as const,
+    title: "Launch Week Bonus",
+    desc: "Opening-week extra rebate has ended.",
+    time: "21–27 Sep 2026",
+    theme: "gray",
+    rules: ["This campaign is closed.", "Rewards already issued remain valid."],
+  },
+] as const;
+
+export type ActivityId = (typeof ACTIVITIES)[number]["id"];
+
+export function getActivity(id: string | null) {
+  return ACTIVITIES.find((item) => item.id === id) ?? null;
+}
