@@ -9,19 +9,6 @@ import { getSessionAccount } from "@/lib/session";
 import { getWallets } from "@/lib/wallets";
 import { getInviteCode, inviteLink } from "@/lib/invite";
 
-const QUOTES = [
-  { name: "BTC", pair: "/USDT", price: "62,140.20", change: "+1.82%", up: true },
-  { name: "ETH", pair: "/USDT", price: "3,412.80", change: "+0.64%", up: true },
-  { name: "BNB", pair: "/USDT", price: "582.10", change: "-0.31%", up: false },
-  { name: "XRP", pair: "/USDT", price: "0.6124", change: "+2.15%", up: true },
-  { name: "SOL", pair: "/USDT", price: "148.36", change: "+0.92%", up: true },
-  { name: "ADA", pair: "/USDT", price: "0.4510", change: "-0.18%", up: false },
-  { name: "DOGE", pair: "/USDT", price: "0.1248", change: "+1.27%", up: true },
-  { name: "LTC", pair: "/USDT", price: "84.20", change: "-0.44%", up: false },
-  { name: "AVAX", pair: "/USDT", price: "36.72", change: "+0.55%", up: true },
-  { name: "LINK", pair: "/USDT", price: "14.08", change: "-0.22%", up: false },
-];
-
 const LOG_ITEM_HEIGHT = 58;
 const LOGS = [
   { user: "ah***21", amount: "150 USDT" },
@@ -174,57 +161,18 @@ export function HomeScreen() {
           </div>
         </section>
 
-        <section className="home-card mb-5 overflow-hidden rounded-2xl">
-          <h2 className="py-3 text-center text-sm font-semibold">{t.quotesTitle}</h2>
-          <div className="grid grid-cols-3 px-4 pb-2 text-[11px] text-white/50">
-            <span>{t.quoteName}</span>
-            <span className="text-center">{t.quotePrice}</span>
-            <span className="text-right">{t.quoteChange}</span>
-          </div>
-          {QUOTES.map((row) => (
-            <div
-              key={row.name}
-              className="grid grid-cols-3 items-center border-t border-white/10 px-4 py-2.5 text-[13px]"
-            >
-              <span>
-                {row.name}
-                <span className="text-white/45">{row.pair}</span>
-              </span>
-              <span className="text-center">{row.price}</span>
-              <span
-                className={`justify-self-end rounded-md px-2 py-1 text-[12px] font-medium ${
-                  row.up ? "bg-[#1f8a4d] text-white" : "bg-[#c43b3b] text-white"
-                }`}
-              >
-                {row.change}
-              </span>
-            </div>
-          ))}
-        </section>
-
         <section className="mb-5">
           <h2 className="mb-3 px-1 text-[22px] font-semibold">{t.regulators}</h2>
-          <div className="agency-wrap px-3 py-4">
-            <div className="grid grid-cols-3 gap-2.5">
-              <AgencyBadge className="bg-[#111] text-white">
-                <OkxMark />
-              </AgencyBadge>
-              <AgencyBadge className="bg-[#04161c] text-[#5cff9a]">
-                <FcaChartMark />
-              </AgencyBadge>
-              <AgencyBadge className="bg-[#1a0820] text-[#ff4fa3]">
-                <FcaScriptMark />
-              </AgencyBadge>
-              <AgencyBadge className="bg-[#2a0d18] text-[#c45a6a]">
-                <FcaAuthorityMark />
-              </AgencyBadge>
-              <AgencyBadge className="bg-[#fff] text-[#f7931a]">
-                <BitcoinMark />
-              </AgencyBadge>
-              <AgencyBadge className="bg-[#f4f7fb] text-[#1d4f8a]">
-                <ConsobMark />
-              </AgencyBadge>
-            </div>
+          <div className="grid grid-cols-3 gap-2">
+            <article className="pay-card px-2 py-3 text-center">
+              <p className="text-[12px] font-semibold">{t.newCars}</p>
+            </article>
+            <article className="pay-card px-2 py-3 text-center">
+              <p className="text-[12px] font-semibold">{t.usedCars}</p>
+            </article>
+            <article className="pay-card px-2 py-3 text-center">
+              <p className="text-[12px] font-semibold">USDT</p>
+            </article>
           </div>
         </section>
 
@@ -331,91 +279,6 @@ function useCountUp(target: number, duration: number) {
   }, [target, duration]);
 
   return value;
-}
-
-function AgencyBadge({
-  className,
-  children,
-}: {
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className={`flex h-[52px] items-center justify-center overflow-hidden rounded-full px-2 ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function OkxMark() {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="grid grid-cols-2 gap-[2px]">
-        <span className="h-1.5 w-1.5 rotate-45 bg-white" />
-        <span className="h-1.5 w-1.5 rotate-45 bg-white" />
-        <span className="h-1.5 w-1.5 rotate-45 bg-white" />
-        <span className="h-1.5 w-1.5 rotate-45 bg-white" />
-      </span>
-      <span className="text-[11px] font-semibold tracking-[0.18em]">OKX</span>
-    </span>
-  );
-}
-
-function FcaChartMark() {
-  return (
-    <span className="flex items-center gap-1">
-      <svg width="28" height="18" viewBox="0 0 28 18" fill="none">
-        <path d="M1 14l5-4 4 2 6-7 5 3 6-6" stroke="#3dff88" strokeWidth="1.6" />
-        <path d="M1 16h26" stroke="#1f6b4a" strokeWidth="1" />
-      </svg>
-      <span className="text-[11px] font-bold tracking-wide text-white">FCA</span>
-    </span>
-  );
-}
-
-function FcaScriptMark() {
-  return (
-    <span className="font-serif text-[22px] italic leading-none tracking-tight">FCA</span>
-  );
-}
-
-function FcaAuthorityMark() {
-  return (
-    <span className="flex items-center gap-1 leading-none">
-      <span className="font-serif text-[20px] italic">FCA</span>
-      <span className="text-left text-[6px] font-semibold uppercase leading-[7px] tracking-wide text-[#d7a3ad]">
-        Financial
-        <br />
-        Conduct
-        <br />
-        Authority
-      </span>
-    </span>
-  );
-}
-
-function BitcoinMark() {
-  return (
-    <span className="flex items-center gap-1">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f7931a] text-[13px] font-bold text-white">
-        ₿
-      </span>
-      <span className="font-serif text-[16px] italic text-[#222]">bitcoin</span>
-    </span>
-  );
-}
-
-function ConsobMark() {
-  return (
-    <span className="text-center leading-none">
-      <span className="block text-[11px] font-bold tracking-[0.12em]">CONSOB</span>
-      <span className="mt-[2px] block text-[5px] font-medium uppercase tracking-wide text-[#5b7ea8]">
-        Commissione Nazionale
-      </span>
-    </span>
-  );
 }
 
 function CopyShareButton({ link }: { link: string }) {

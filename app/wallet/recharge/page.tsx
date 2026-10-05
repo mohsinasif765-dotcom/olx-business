@@ -6,7 +6,7 @@ import { FormEvent, Suspense, useMemo, useState } from "react";
 import { getCoin } from "@/lib/coins";
 import { CoinIcon } from "@/components/CoinIcon";
 import { useLanguage } from "@/lib/i18n";
-import { VIP_PLANS } from "@/components/VipScreen";
+import { useCarPlans } from "@/lib/use-car-plans";
 import { getWallets, setWallet } from "@/lib/wallets";
 
 type HistoryItem = {
@@ -28,10 +28,11 @@ export default function Page() {
 function RechargeDetail() {
   const { t } = useLanguage();
   const params = useSearchParams();
+  const { vipPlans } = useCarPlans();
   const coin = useMemo(() => getCoin(params.get("coin")), [params]);
   const plan = useMemo(
-    () => VIP_PLANS.find((item) => item.id === params.get("plan")) ?? null,
-    [params]
+    () => vipPlans.find((item) => item.id === params.get("plan")) ?? null,
+    [params, vipPlans]
   );
   const [amount, setAmount] = useState("");
   const [hash, setHash] = useState("");

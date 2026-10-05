@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-1 text-base font-semibold text-white">2.</h2>
             <p>
-              Data is used to create your session, show VIP mining, recharge, withdraw, invite,
+              Data is used to create your session, show car packages, funding, payouts, invite,
               and support screens, and to prevent abuse.
             </p>
           </section>

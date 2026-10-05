@@ -8,14 +8,14 @@ import { TELEGRAM_HELP } from "@/lib/links";
 
 export function FaqScreen() {
   const { t } = useLanguage();
-  const [tab, setTab] = useState<FaqTab>("mining");
+  const [tab, setTab] = useState<FaqTab>("cars");
   const items = useMemo(
     () => FAQ_ARTICLES.filter((item) => item.tab === tab),
     [tab]
   );
 
   const tabs: { id: FaqTab; label: string }[] = [
-    { id: "mining", label: t.faqMining },
+    { id: "cars", label: t.faqMining },
     { id: "about", label: t.faqAbout },
     { id: "wallet", label: t.faqWallet },
   ];

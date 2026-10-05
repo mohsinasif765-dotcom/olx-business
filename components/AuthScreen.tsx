@@ -11,16 +11,19 @@ type Mode = "login" | "register";
 type Tab = "email" | "mobile";
 
 const COUNTRY_CODES = [
-  { code: "+1", label: "+1" },
-  { code: "+44", label: "+44" },
-  { code: "+86", label: "+86" },
-  { code: "+91", label: "+91" },
-  { code: "+92", label: "+92" },
+  { code: "+92", name: "PK" },
+  { code: "+91", name: "IN" },
+  { code: "+86", name: "CN" },
+  { code: "+1", name: "US" },
+  { code: "+44", name: "UK" },
+  { code: "+971", name: "AE" },
+  { code: "+966", name: "SA" },
 ];
 
 export function AuthScreen({ mode }: { mode: Mode }) {
   const [tab, setTab] = useState<Tab>("email");
   const [country, setCountry] = useState("+92");
+  const [codesOpen, setCodesOpen] = useState(false);
   const [showLoginPass, setShowLoginPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [showSecurity, setShowSecurity] = useState(false);
@@ -102,7 +105,10 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           <div className="mb-6 grid w-full grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={() => setTab("email")}
+              onClick={() => {
+                setTab("email");
+                setCodesOpen(false);
+              }}
               className={`h-12 rounded-full text-[15px] font-medium ${
                 tab === "email" ? "auth-tab-active" : "auth-tab-idle"
               }`}
@@ -129,23 +135,47 @@ export function AuthScreen({ mode }: { mode: Mode }) {
                 className="auth-input"
               />
             ) : (
-              <div className="flex gap-2">
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="auth-input w-[88px] shrink-0 px-2"
-                >
-                  {COUNTRY_CODES.map((item) => (
-                    <option key={item.code} value={item.code}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="auth-phone-row">
+                <div className="auth-dial-wrap">
+                  <button
+                    type="button"
+                    className="auth-input auth-dial"
+                    aria-label="Country code"
+                    aria-expanded={codesOpen}
+                    onClick={() => setCodesOpen((open) => !open)}
+                  >
+                    <span>{country}</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                      <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  {codesOpen ? (
+                    <ul className="auth-dial-menu">
+                      {COUNTRY_CODES.map((item) => (
+                        <li key={item.code}>
+                          <button
+                            type="button"
+                            className={`auth-dial-option ${country === item.code ? "is-on" : ""}`}
+                            onClick={() => {
+                              setCountry(item.code);
+                              setCodesOpen(false);
+                            }}
+                          >
+                            <span>{item.name}</span>
+                            <span>{item.code}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
                 <input
                   name="mobile"
                   type="tel"
-                  placeholder="Mobile"
-                  className="auth-input"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  placeholder="Mobile number"
+                  className="auth-input min-w-0"
                 />
               </div>
             )}

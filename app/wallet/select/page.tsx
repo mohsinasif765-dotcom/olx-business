@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { COINS } from "@/lib/coins";
-import { CoinIcon } from "@/components/CoinIcon";
 import { BackHeader } from "@/components/BackHeader";
+import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
 
 export default function Page() {
@@ -19,14 +18,17 @@ export default function Page() {
 function RechargeSelect() {
   const { t } = useLanguage();
   const params = useSearchParams();
-  const plan = params.get("plan");
+  const { vipPlans } = useCarPlans();
+  const planId = params.get("plan");
+  const plan = vipPlans.find((item) => item.id === planId) ?? null;
+  const href = planId ? `/wallet/recharge?coin=usdt&plan=${planId}` : "/wallet/recharge?coin=usdt";
 
   return (
     <div className="star-field">
       <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
         <BackHeader
-          href="/home"
-          title={t.rechargeSelect}
+          href={plan ? "/vip" : "/home"}
+          title={t.fundWallet}
           right={
             <Link href="/wallet/history" className="text-[12px] text-[#9ec6ff]">
               {t.rechargeHistory}
@@ -34,44 +36,25 @@ function RechargeSelect() {
           }
         />
 
-        <div className="space-y-2">
-          {COINS.map((coin) => {
-            const href = plan
-              ? `/wallet/recharge?coin=${coin.id}&plan=${plan}`
-              : `/wallet/recharge?coin=${coin.id}`;
-            return (
-              <div key={coin.id} className="coin-row">
-                <Link href={href} className="flex min-w-0 flex-1 items-center gap-3">
-                  <CoinIcon symbol={coin.symbol} />
-                  <span className="truncate text-[14px] font-medium">{coin.name}</span>
-                </Link>
-                <div className="flex items-center gap-2">
-                  {"telegram" in coin && coin.telegram ? (
-                    <Link
-                      href="/support"
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2ea4e7] text-white"
-                      aria-label={t.support}
-                    >
-                      <TelegramTiny />
-                    </Link>
-                  ) : null}
-                  <Link href={href} className="px-1 text-white/40">
-                    ›
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {plan ? (
+          <div className="pay-card mb-4">
+            <p className="text-[11px] tracking-wide text-white/45 uppercase">{t.selectedPlan}</p>
+            <p className="mt-1 text-[17px] font-semibold">{plan.name}</p>
+            <p className="mt-1 text-[13px] text-[#9ee7ff]">{plan.recharge}</p>
+          </div>
+        ) : (
+          <p className="mb-4 px-1 text-[13px] leading-5 text-white/55">{t.fundIntro}</p>
+        )}
+
+        <article className="pay-card">
+          <p className="text-[11px] tracking-wide text-white/45 uppercase">{t.payMethod}</p>
+          <h2 className="mt-2 text-[18px] font-semibold">USDT</h2>
+          <p className="mt-2 text-[13px] leading-5 text-white/55">{t.payUsdtHint}</p>
+          <Link href={href} className="car-invest mt-4">
+            {t.continuePay}
+          </Link>
+        </article>
       </div>
     </div>
-  );
-}
-
-function TelegramTiny() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M21.5 4.4L2.9 11.6c-1.2.5-1.2 1.2-.2 1.5l4.7 1.5 1.8 5.6c.2.7.8.8 1.3.5l2.6-2.5 5.4 4c1 .6 1.7.3 2-1L22.8 5.8c.3-1.3-.5-1.9-1.3-1.4z" />
-    </svg>
   );
 }

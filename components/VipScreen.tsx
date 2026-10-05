@@ -1,27 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { type CarKind } from "@/lib/cars";
+import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
 
-export const VIP_PLANS = [
-  { id: "vip1", name: "VIP 1", recharge: "$100.00 – $199.99", income: "$3.00", days: 1, rebate: "0.01%" },
-  { id: "vip2", name: "VIP 2", recharge: "$200.00 – $499.99", income: "$24.00", days: 3, rebate: "0.01%" },
-  { id: "vip3", name: "VIP 3", recharge: "$500.00 – $1,999.99", income: "$60.00", days: 5, rebate: "0.01%" },
-  { id: "vip4", name: "VIP 4", recharge: "$2,000.00 – $4,999.99", income: "$360.00", days: 7, rebate: "0.02%" },
-  { id: "vip5", name: "VIP 5", recharge: "$5,000.00 – $9,999.99", income: "$1,050.00", days: 10, rebate: "0.03%" },
-  { id: "vip6", name: "VIP 6", recharge: "$10,000.00 – $19,999.99", income: "$2,400.00", days: 15, rebate: "0.04%" },
-  { id: "vip7", name: "VIP 7", recharge: "$20,000.00 – $29,999.99", income: "$6,000.00", days: 20, rebate: "0.05%" },
-  { id: "vip8", name: "VIP 8", recharge: "$30,000.00+", income: "$10,500.00", days: 30, rebate: "0.06%" },
-];
+export { VIP_PLANS } from "@/lib/cars";
 
 export function VipScreen() {
   const { t } = useLanguage();
+  const { plans: allPlans } = useCarPlans();
+  const [tab, setTab] = useState<CarKind>("new");
+  const plans = useMemo(() => allPlans.filter((p) => p.kind === tab), [allPlans, tab]);
 
   return (
     <div className="star-field">
-      <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
+      <div className="mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
         <header className="relative mb-4 flex items-center justify-between">
           <Link href="/home" className="flex items-center gap-2">
             <BrandLogo size={42} />
@@ -30,33 +27,55 @@ export function VipScreen() {
           <LanguageSwitch globe />
         </header>
 
-        <div className="mb-3 flex items-center justify-between px-1 text-[12px] text-white/55">
-          <span>{t.level}</span>
-          <span>{t.rechargeAmount}</span>
+        <h1 className="mb-1 px-1 text-[22px] font-semibold">{t.carsTitle}</h1>
+        <p className="mb-4 px-1 text-[13px] leading-5 text-white/55">{t.carIntro}</p>
+
+        <div className="car-tabs mb-4">
+          <button
+            type="button"
+            className={tab === "new" ? "is-on" : ""}
+            onClick={() => setTab("new")}
+          >
+            {t.newCars}
+          </button>
+          <button
+            type="button"
+            className={tab === "used" ? "is-on" : ""}
+            onClick={() => setTab("used")}
+          >
+            {t.usedCars}
+          </button>
         </div>
 
-        <Link href="/wallet/select" className="vip-recharge-btn mb-4 block text-center">
-          {t.recharge}
-        </Link>
-
-        <div className="space-y-3">
-          {VIP_PLANS.map((plan) => (
-            <article key={plan.id} className="vip-card">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#6d5bff]/30 text-[#c9b8ff]">
-                  ♛
-                </span>
-                <h2 className="text-[16px] font-semibold">{plan.name}</h2>
+        <div className="space-y-4">
+          {plans.length === 0 ? (
+            <p className="px-1 text-[13px] text-white/50">No packages in this tab yet.</p>
+          ) : (
+            plans.map((plan) => (
+            <article key={plan.id} className="car-card">
+              <div className="car-photo">
+                <img
+                  src={plan.image}
+                  alt={plan.name}
+                  onError={(event) => {
+                    event.currentTarget.src =
+                      plan.kind === "used" ? "/cars/used-compact.jpg" : "/cars/city-sedan.jpg";
+                  }}
+                />
+                <span className="car-badge">{tab === "new" ? t.newCars : t.usedCars}</span>
               </div>
-              <Row label={t.rechargeAmount} value={plan.recharge} />
-              <Row label={t.miningIncome} value={plan.income} accent />
-              <Row
-                label={t.miningTime}
-                value={`${plan.days} ${plan.days === 1 ? t.day : t.days}`}
-              />
-              <Row label={t.miningRebate} value={plan.rebate} accent />
+              <div className="p-3.5">
+                <h2 className="mb-3 text-[16px] font-semibold">{plan.name}</h2>
+                <Row label={t.investAmount} value={plan.invest} />
+                <Row label={t.expectedReturn} value={plan.returns} accent />
+                <Row label={t.planTerm} value={plan.term} />
+                <Link href={`/wallet/select?plan=${plan.id}`} className="car-invest">
+                  {t.investCta}
+                </Link>
+              </div>
             </article>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -73,11 +92,9 @@ function Row({
   accent?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between py-[3px] text-[13px]">
+    <div className="flex items-center justify-between py-[4px] text-[13px]">
       <span className="text-white/55">{label}</span>
-      <span className={accent ? "font-medium text-[#3dff9a]" : "text-white"}>
-        {value}
-      </span>
+      <span className={accent ? "font-medium text-[#3dff9a]" : "text-white"}>{value}</span>
     </div>
   );
 }

@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CoinIcon } from "@/components/CoinIcon";
 import { useLanguage } from "@/lib/i18n";
-
-const WALLETS = [
-  { id: "bep20-usdt", name: "BEP20-USDT", fee: 1, min: 1 },
-  { id: "trc20-usdt", name: "TRC20-USDT", fee: 0, min: 1 },
-] as const;
 
 export type WithdrawRecord = {
   id: string;
@@ -25,8 +19,6 @@ export type WithdrawRecord = {
 export function WithdrawScreen() {
   const { t } = useLanguage();
   const router = useRouter();
-  const [walletId, setWalletId] = useState<(typeof WALLETS)[number]["id"]>("bep20-usdt");
-  const [open, setOpen] = useState(false);
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +26,8 @@ export function WithdrawScreen() {
   const [balance, setBalance] = useState(0);
   const [error, setError] = useState("");
 
-  const wallet = WALLETS.find((item) => item.id === walletId) ?? WALLETS[0];
+  const fee = 1;
+  const minPayout = 1;
 
   useEffect(() => {
     const stored = Number(window.localStorage.getItem("olx-usdt-balance") || "0");
@@ -42,7 +35,6 @@ export function WithdrawScreen() {
   }, []);
 
   const parsedAmount = Number(amount);
-  const fee = wallet.fee;
   const arrival = useMemo(() => {
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return 0;
     return Math.max(0, parsedAmount - fee);
@@ -56,7 +48,7 @@ export function WithdrawScreen() {
       setError(t.addressRequired);
       return;
     }
-    if (!Number.isFinite(parsedAmount) || parsedAmount < wallet.min) {
+    if (!Number.isFinite(parsedAmount) || parsedAmount < minPayout) {
       setError(t.minWithdrawError);
       return;
     }
@@ -71,7 +63,7 @@ export function WithdrawScreen() {
 
     const item: WithdrawRecord = {
       id: String(Date.now()),
-      wallet: wallet.name,
+      wallet: "USDT",
       address: address.trim(),
       amount: parsedAmount.toFixed(6),
       fee: fee.toFixed(6),
@@ -89,7 +81,7 @@ export function WithdrawScreen() {
     const next = Math.max(0, balance - parsedAmount);
     window.localStorage.setItem("olx-usdt-balance", String(next));
     router.push(
-      `/withdraw/result?amount=${item.amount}&wallet=${encodeURIComponent(wallet.name)}&arrival=${item.arrival}`
+      `/withdraw/result?amount=${item.amount}&wallet=${encodeURIComponent("USDT")}&arrival=${item.arrival}`
     );
   }
 
@@ -117,40 +109,10 @@ export function WithdrawScreen() {
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <p className="mb-2 text-[12px] text-white/55">{t.selectWallet}</p>
-            <button
-              type="button"
-              className="wd-select"
-              onClick={() => setOpen((value) => !value)}
-            >
-              <span className="flex items-center gap-2">
-                <CoinIcon symbol="USDT" size={22} />
-                <span>{wallet.name}</span>
-              </span>
-              <span className="text-white/50">{open ? "▴" : "▾"}</span>
-            </button>
-            {open ? (
-              <div className="wd-menu">
-                {WALLETS.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`wd-option ${item.id === wallet.id ? "is-on" : ""}`}
-                    onClick={() => {
-                      setWalletId(item.id);
-                      setOpen(false);
-                    }}
-                  >
-                    <CoinIcon symbol="USDT" size={20} />
-                    <span>{item.name}</span>
-                    <span className="ml-auto text-[11px] text-white/45">
-                      {item.fee === 0 ? "Free" : `${item.fee} USDT`}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+          <div className="pay-card">
+            <p className="text-[11px] tracking-wide text-white/45 uppercase">{t.payoutMethod}</p>
+            <p className="mt-2 text-[17px] font-semibold">USDT</p>
+            <p className="mt-1 text-[13px] text-white/50">{t.payoutHint}</p>
           </div>
 
           <label className="block">
@@ -186,7 +148,7 @@ export function WithdrawScreen() {
 
           <div className="flex justify-between text-[12px] text-white/50">
             <span>
-              {t.minWithdraw}: {wallet.min.toFixed(6)} USDT
+              {t.minWithdraw}: {minPayout.toFixed(2)} USDT
             </span>
             <span>
               {t.handlingFee}: {fee.toFixed(0)} USDT

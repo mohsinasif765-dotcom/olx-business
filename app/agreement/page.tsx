@@ -25,14 +25,14 @@ export default function AgreementPage() {
             <h2 className="mb-1 text-base font-semibold text-white">2.</h2>
             <p>
               Keep your login password and security password private. You are responsible for
-              activity on your account, including recharge, mining plans, and withdrawals.
+              activity on your account, including funding, car packages, and payouts.
             </p>
           </section>
           <section>
             <h2 className="mb-1 text-base font-semibold text-white">3.</h2>
             <p>
-              OLX Business is a VIP cloud-mining membership platform. Mining income follows the
-              VIP plan you activate. Demo balances on this site are for product demonstration.
+              OLX Business offers new and certified used car investment packages. Returns follow
+              the package you select. Demo balances on this site are for product demonstration.
             </p>
           </section>
           <section>

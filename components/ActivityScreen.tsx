@@ -29,9 +29,9 @@ export function ActivityScreen() {
 
         <div className="act-hero mb-4">
           <p className="text-[12px] tracking-[0.16em] text-white/55">OLX BUSINESS</p>
-          <h2 className="mt-1 text-[22px] font-semibold">Limited events</h2>
+          <h2 className="mt-1 text-[22px] font-semibold">Member offers</h2>
           <p className="mt-2 text-[13px] text-white/70">
-            Check-in, lucky draw, first recharge, and VIP boosts.
+            Check-in, first fund bonus, and invite rewards.
           </p>
         </div>
 

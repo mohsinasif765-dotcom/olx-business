@@ -13,6 +13,7 @@ export function MeScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const [account, setAccount] = useState<string | null>(null);
+  const [showAccount, setShowAccount] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
@@ -48,8 +49,16 @@ export function MeScreen() {
               <UserIcon />
             </div>
             <p className="min-w-0 flex-1 truncate text-[14px] font-medium tracking-wide">
-              {maskAccount(account)}
+              {showAccount ? account : maskAccount(account)}
             </p>
+            <button
+              type="button"
+              className="me-eye"
+              aria-label={showAccount ? "Hide number" : "Show number"}
+              onClick={() => setShowAccount((open) => !open)}
+            >
+              {showAccount ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
             <span className="me-vip">{t.vipTag}</span>
           </section>
         ) : (
@@ -260,6 +269,26 @@ function InfoIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
       <path d="M12 11v5.2M12 8.2h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.77 21.77 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.83 21.83 0 0 1-2.16 3.19" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
 }

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# package photos (uploaded from admin; swap for object storage with DB)
+/public/uploads/cars/*
+!/public/uploads/cars/.gitkeep

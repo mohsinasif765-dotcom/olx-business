@@ -17,7 +17,7 @@ function WithdrawResult() {
   const { t } = useLanguage();
   const params = useSearchParams();
   const amount = params.get("amount") || "0.000000";
-  const wallet = params.get("wallet") || "BEP20-USDT";
+  const wallet = params.get("wallet") || "USDT";
   const arrival = params.get("arrival") || "0.000000";
 
   return (
