@@ -7,19 +7,32 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { fetchContent } from "@/lib/fetch-content";
 import { signIn, getSessionAccount } from "@/lib/session";
+import { flagUrl } from "@/lib/currency-flag";
 
 type Mode = "login" | "register";
 type Tab = "email" | "mobile";
 
 const COUNTRY_CODES = [
-  { code: "+92", name: "PK" },
-  { code: "+91", name: "IN" },
-  { code: "+86", name: "CN" },
-  { code: "+1", name: "US" },
-  { code: "+44", name: "UK" },
-  { code: "+971", name: "AE" },
-  { code: "+966", name: "SA" },
+  { code: "+92", name: "PK", flag: "pk" },
+  { code: "+91", name: "IN", flag: "in" },
+  { code: "+86", name: "CN", flag: "cn" },
+  { code: "+1", name: "US", flag: "us" },
+  { code: "+44", name: "UK", flag: "gb" },
+  { code: "+971", name: "AE", flag: "ae" },
+  { code: "+966", name: "SA", flag: "sa" },
 ];
+
+function DialFlag({ iso }: { iso: string }) {
+  return (
+    <img
+      src={flagUrl(iso, 40)}
+      alt=""
+      width={20}
+      height={14}
+      className="shrink-0 rounded-[2px] object-cover"
+    />
+  );
+}
 
 export function AuthScreen({ mode }: { mode: Mode }) {
   const [tab, setTab] = useState<Tab>("email");
@@ -184,7 +197,10 @@ export function AuthScreen({ mode }: { mode: Mode }) {
                     aria-expanded={codesOpen}
                     onClick={() => setCodesOpen((open) => !open)}
                   >
-                    <span>{country}</span>
+                    <span className="flex items-center gap-1.5">
+                      <DialFlag iso={COUNTRY_CODES.find((c) => c.code === country)?.flag || "pk"} />
+                      <span>{country}</span>
+                    </span>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
                       <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                     </svg>
@@ -201,6 +217,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
                               setCodesOpen(false);
                             }}
                           >
+                            <DialFlag iso={item.flag} />
                             <span>{item.name}</span>
                             <span>{item.code}</span>
                           </button>

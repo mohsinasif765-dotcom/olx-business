@@ -120,9 +120,9 @@ button:active,
 .auth-dial-menu {
   position: absolute;
   left: 0;
-  right: 0;
   top: calc(100% + 6px);
   z-index: 20;
+  min-width: 168px;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -136,12 +136,16 @@ button:active,
   display: flex;
   width: 100%;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 10px 10px;
   border-radius: 10px;
   color: #fff;
   font-size: 14px;
   background: transparent;
+}
+
+.auth-dial-option span:last-child {
+  margin-left: auto;
 }
 
 .auth-dial-option.is-on,
