@@ -29,10 +29,9 @@ function WithdrawResult() {
           </div>
           <h1 className="text-[20px] font-semibold">{t.submitted}</h1>
           <p className="mt-2 text-[13px] text-[#ffd27a]">{t.resultPending}</p>
-          <p className="mt-5 text-[28px] font-semibold">{amount} USDT</p>
-          <p className="mt-1 text-[13px] text-white/55">{wallet}</p>
+          <p className="mt-5 text-[28px] font-semibold">{amount} {wallet}</p>
           <p className="mt-3 text-[12px] text-white/50">
-            {t.actualArrival}: {arrival} USDT
+            {t.actualArrival}: {arrival} {wallet}
           </p>
         </div>
 

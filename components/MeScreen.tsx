@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { clearSession, getSessionAccount, maskAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
@@ -63,7 +64,8 @@ export function MeScreen() {
             <BrandLogo size={36} />
             <span className="truncate text-[16px] font-semibold text-white">{siteName}</span>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2">
+            <InstallAppButton />
             <LanguageSwitch globe />
             <Link href="/" className="me-login-ico" aria-label={t.login}>
               <HeaderLoginIcon />

@@ -24,7 +24,22 @@ type Snapshot = {
   cms?: CmsPage[];
   faqs?: FaqItem[];
   notices?: { id: string; title: string; body: string; enabled: boolean }[];
-  coins?: { id: string; name: string; network: string; min: string; address: string; enabled?: boolean }[];
+  coins?: {
+    id: string;
+    name: string;
+    network: string;
+    min: string;
+    address: string;
+    enabled?: boolean;
+    payKind?: "crypto" | "bank";
+    bankName?: string;
+    accountName?: string;
+    accountNumber?: string;
+    iban?: string;
+    swift?: string;
+    branch?: string;
+    instructions?: string;
+  }[];
   activities?: { id: string; title: string; desc: string; time: string; status: string; enabled?: boolean }[];
   recharges?: { id: string; account: string; amount: number; network: string; status: string; at: string }[];
   withdraws?: { id: string; account: string; amount: number; wallet: string; status: string; at: string }[];
@@ -83,13 +98,21 @@ export async function readSite() {
     coins: migrateCurrencies(payload.coins)
       .filter((c) => c.enabled !== false)
       .map((c) => ({
-      id: String(c.id),
-      name: String(c.name),
-      network: String(c.network || "Bank"),
-      min: String(c.min || "1"),
-      address: String(c.address || ""),
-      enabled: true,
-    })),
+        id: String(c.id),
+        name: String(c.name),
+        network: String(c.network || "Bank"),
+        min: String(c.min || "1"),
+        address: String(c.address || ""),
+        enabled: true,
+        payKind: c.payKind,
+        bankName: String(c.bankName || ""),
+        accountName: String(c.accountName || ""),
+        accountNumber: String(c.accountNumber || ""),
+        iban: String(c.iban || ""),
+        swift: String(c.swift || ""),
+        branch: String(c.branch || ""),
+        instructions: String(c.instructions || ""),
+      })),
     activities: (payload.activities || []).filter((a) => a.enabled !== false),
     recharges: stripDemoRows(payload.recharges || []),
     withdraws: stripDemoRows(payload.withdraws || []),

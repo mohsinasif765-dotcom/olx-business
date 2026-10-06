@@ -5,10 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { fetchContent } from "@/lib/fetch-content";
 import { getCoin } from "@/lib/coins";
+import { type CurrencyRow, isCryptoId, payDestination } from "@/lib/currencies";
 import { CurrencyFlag } from "@/components/CurrencyFlag";
 import { useLanguage } from "@/lib/i18n";
 import { useCarPlans } from "@/lib/use-car-plans";
-import { creditWallet } from "@/lib/wallets";
 import { postLedger } from "@/lib/ledger";
 import { getSessionAccount } from "@/lib/session";
 
@@ -19,6 +19,8 @@ type HistoryItem = {
   status: string;
   at: string;
 };
+
+type PayAsset = CurrencyRow & { symbol: string };
 
 export default function Page() {
   return (
@@ -34,77 +36,98 @@ function RechargeDetail() {
   const { vipPlans } = useCarPlans();
   const coinId = params.get("coin") || "usdt";
   const fallback = getCoin(coinId);
-  const [asset, setAsset] = useState<{
-    id: string;
-    name: string;
-    network: string;
-    symbol: string;
-    color: string;
-    letter: string;
-    min: string;
-    address: string;
-  }>({
+  const [asset, setAsset] = useState<PayAsset>({
     id: fallback.id,
     name: fallback.name,
     network: fallback.network,
-    symbol: fallback.symbol,
-    color: fallback.color,
-    letter: fallback.letter,
     min: fallback.min,
     address: fallback.address,
+    symbol: fallback.symbol,
+    payKind: isCryptoId(fallback.id) ? "crypto" : "bank",
+    bankName: "",
+    accountName: "",
+    accountNumber: "",
+    iban: "",
+    swift: "",
+    branch: "",
+    instructions: "",
   });
   const [paused, setPaused] = useState(false);
+  const [copied, setCopied] = useState("");
+  const [amount, setAmount] = useState("");
+  const [hash, setHash] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void fetchContent()
-      .then((data: {
-        flags?: { rechargeOn?: boolean };
-        coins?: { id: string; name: string; network: string; min: string; address: string }[];
-      } | null) => {
+      .then((data: { flags?: { rechargeOn?: boolean }; coins?: CurrencyRow[] } | null) => {
         if (data?.flags?.rechargeOn === false) setPaused(true);
         const row = data?.coins?.find((c) => c.id === coinId) || data?.coins?.[0];
         if (row) {
           setAsset({
-            id: row.id,
-            name: row.name,
-            network: row.network,
+            ...row,
             symbol: row.name || row.id.toUpperCase(),
-            color: "#26a17b",
-            letter: "₮",
-            min: row.min,
-            address: row.address,
+            payKind: row.payKind || (isCryptoId(row.id) ? "crypto" : "bank"),
           });
         }
       })
       .catch(() => {});
   }, [coinId]);
+
   const plan = useMemo(
     () => vipPlans.find((item) => item.id === params.get("plan")) ?? null,
     [params, vipPlans]
   );
-  const [amount, setAmount] = useState("");
-  const [hash, setHash] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [message, setMessage] = useState("");
+  const dest = payDestination(asset);
+  const crypto = asset.payKind === "crypto" || isCryptoId(asset.id);
+  const minN = Number(asset.min) || 0;
+  const quick = [asset.min, String(minN * 2 || 50), String(minN * 5 || 100), String(minN * 10 || 500)];
+  const qrValue = dest || asset.iban || asset.address;
+  const ready = Boolean(dest || asset.iban || asset.bankName);
 
-  const quick = [asset.min, "50", "100", "500"];
+  const rows = [
+    !crypto && asset.bankName ? { key: "bank", label: t.bankName, value: asset.bankName } : null,
+    !crypto && asset.accountName ? { key: "title", label: t.accountTitle, value: asset.accountName } : null,
+    dest ? { key: "dest", label: crypto ? t.depositAddress : t.accountNumber, value: dest } : null,
+    asset.iban ? { key: "iban", label: t.ibanLabel, value: asset.iban } : null,
+    asset.swift ? { key: "swift", label: t.swiftLabel, value: asset.swift } : null,
+    asset.branch ? { key: "branch", label: t.branchLabel, value: asset.branch } : null,
+  ].filter(Boolean) as { key: string; label: string; value: string }[];
 
-  async function copyAddress() {
+  async function copyValue(key: string, value: string) {
     try {
-      await navigator.clipboard.writeText(asset.address);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      window.setTimeout(() => setCopied(""), 1500);
     } catch {
-      setCopied(false);
+      setCopied("");
     }
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!amount.trim()) {
+    if (!getSessionAccount()) {
+      setMessage(t.login);
+      return;
+    }
+    if (paused) {
+      setMessage("Funding is paused in admin settings.");
+      return;
+    }
+    if (!ready) {
+      setMessage(t.payNotReady);
+      return;
+    }
+    if (!amount.trim() || Number(amount) <= 0) {
       setMessage(t.amountRequired);
       return;
     }
+    if (minN > 0 && Number(amount) < minN) {
+      setMessage(`${t.minAmount} ${asset.min} ${asset.symbol}`);
+      return;
+    }
+    setBusy(true);
     const item: HistoryItem = {
       id: String(Date.now()),
       coin: asset.name,
@@ -112,23 +135,19 @@ function RechargeDetail() {
       status: t.pending,
       at: new Date().toLocaleString(),
     };
-    const prev = JSON.parse(
-      window.localStorage.getItem("olx-recharge-history") || "[]"
-    ) as HistoryItem[];
-    window.localStorage.setItem(
-      "olx-recharge-history",
-      JSON.stringify([item, ...prev].slice(0, 20))
-    );
-    const credited = Number(amount);
-    if (paused) {
-      setMessage("Funding is paused in admin settings.");
-      return;
-    }
-    if (Number.isFinite(credited) && credited > 0) {
-      void creditWallet("invest", credited);
-      void postLedger({ kind: "recharges", amount: credited, network: asset.network, txHash: hash, status: "paid" });
-    }
-    setMessage(`${asset.name} ${amount} ${t.rechargeDone}`);
+    const prev = JSON.parse(window.localStorage.getItem("olx-recharge-history") || "[]") as HistoryItem[];
+    window.localStorage.setItem("olx-recharge-history", JSON.stringify([item, ...prev].slice(0, 20)));
+    await postLedger({
+      kind: "recharges",
+      amount: Number(amount),
+      network: asset.name,
+      txHash: hash,
+      status: "pending",
+    });
+    setBusy(false);
+    setMessage(t.submittedPending);
+    setAmount("");
+    setHash("");
   }
 
   return (
@@ -147,45 +166,61 @@ function RechargeDetail() {
           </Link>
         </header>
 
-        <div className="deposit-hero mb-4 text-center">
-          <div className="mx-auto mb-3 w-fit drop-shadow-lg">
+        <div className="deposit-hero mb-4 px-4 py-5 text-center">
+          <div className="mx-auto mb-3 w-fit">
             <CurrencyFlag id={asset.id} name={asset.name} network={asset.network} size={56} />
           </div>
           <h2 className="text-[20px] font-semibold">{asset.name}</h2>
           <span className="mt-2 inline-flex rounded-full bg-[#6d5bff]/25 px-3 py-1 text-[11px] tracking-wide text-[#c9b8ff]">
-            {asset.network}
+            {crypto ? asset.network : t.bankName}
+            {asset.network && !crypto ? ` · ${asset.network}` : ""}
           </span>
           {plan ? (
             <p className="mt-2 text-[12px] text-white/55">
               {t.selectedPlan}: {plan.name}
             </p>
           ) : null}
+          <p className="mt-3 text-[12px] leading-5 text-white/60">{t.payToCompany}</p>
         </div>
 
-        <div className="deposit-card mb-4 p-4">
-          <div className="mx-auto mb-4 flex h-[168px] w-[168px] items-center justify-center rounded-2xl bg-white p-3 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
-            <AddressQr value={asset.address} />
+        {ready ? (
+          <div className="deposit-card mb-4 p-4">
+            {qrValue ? (
+              <>
+                <div className="mx-auto mb-3 flex h-[160px] w-[160px] items-center justify-center rounded-2xl bg-white p-3">
+                  <AddressQr value={qrValue} />
+                </div>
+                <p className="mb-4 text-center text-[12px] text-white/50">{t.scanQr}</p>
+              </>
+            ) : null}
+            <div className="space-y-2">
+              {rows.map((row) => (
+                <div key={row.key} className="flex items-start gap-2 rounded-xl bg-black/25 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-white/40">{row.label}</p>
+                    <p className="mt-0.5 break-all font-mono text-[12px] leading-5 text-white/90">{row.value}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void copyValue(row.key, row.value)}
+                    className="shrink-0 rounded-lg bg-[#5b4dff] px-2.5 py-1.5 text-[11px] font-semibold"
+                  >
+                    {copied === row.key ? t.copied : t.copy}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="mb-3 text-center text-[12px] text-white/50">{t.scanQr}</p>
-          <p className="mb-2 text-[12px] text-white/50">{t.depositAddress}</p>
-          <div className="flex items-start gap-2 rounded-xl bg-black/25 p-3">
-            <p className="min-w-0 flex-1 break-all font-mono text-[12px] leading-5 text-white/90">
-              {asset.address}
-            </p>
-            <button
-              type="button"
-              onClick={copyAddress}
-              className="shrink-0 rounded-lg bg-[#5b4dff] px-3 py-1.5 text-[12px] font-semibold"
-            >
-              {copied ? t.copied : t.copyAddress}
-            </button>
-          </div>
-        </div>
+        ) : (
+          <p className="mb-4 rounded-xl border border-[#ffd27a]/25 bg-[#ffd27a]/10 px-3 py-3 text-[13px] leading-5 text-[#ffd27a]">
+            {t.payNotReady}
+          </p>
+        )}
 
         <div className="deposit-card mb-4 grid grid-cols-2 gap-3 p-4 text-center">
           <div>
-            <p className="text-[11px] text-white/45">{t.network}</p>
-            <p className="mt-1 text-sm font-semibold">{asset.network}</p>
+            <p className="text-[11px] text-white/45">{crypto ? t.network : t.bankName}</p>
+            <p className="mt-1 text-sm font-semibold">{asset.bankName || asset.network}</p>
           </div>
           <div>
             <p className="text-[11px] text-white/45">{t.minAmount}</p>
@@ -196,7 +231,8 @@ function RechargeDetail() {
         </div>
 
         <div className="mb-4 rounded-xl border border-[#ffd27a]/30 bg-[#ffd27a]/10 px-3 py-3 text-[12px] leading-5 text-[#ffd27a]">
-          {t.onlySend}
+          {t.onlySend.replace("{asset}", asset.symbol)}
+          {asset.instructions ? ` ${asset.instructions}` : ""}
         </div>
 
         <div className="deposit-card mb-4 p-4">
@@ -208,7 +244,7 @@ function RechargeDetail() {
             </li>
             <li className="flex gap-2">
               <span className="step-no">2</span>
-              {t.step2}
+              {t.step2.replace("{asset}", asset.symbol)}
             </li>
             <li className="flex gap-2">
               <span className="step-no">3</span>
@@ -217,7 +253,7 @@ function RechargeDetail() {
           </ol>
         </div>
 
-        <form className="space-y-3" onSubmit={onSubmit}>
+        <form className="space-y-3" onSubmit={(e) => void onSubmit(e)}>
           <div>
             <p className="mb-2 text-[12px] text-white/55">
               {t.amount} ({asset.symbol})
@@ -245,10 +281,10 @@ function RechargeDetail() {
           <input
             value={hash}
             onChange={(e) => setHash(e.target.value)}
-            placeholder={t.txHash}
+            placeholder={t.paymentRef}
             className="auth-input"
           />
-          <button type="submit" className="vip-recharge-btn w-full">
+          <button type="submit" className="vip-recharge-btn w-full" disabled={busy || paused}>
             {t.submitOrder}
           </button>
         </form>
@@ -259,10 +295,7 @@ function RechargeDetail() {
           </p>
         ) : null}
 
-        <Link
-          href="/support"
-          className="mt-4 block text-center text-sm text-[#9ec6ff]"
-        >
+        <Link href="/support" className="mt-4 block text-center text-sm text-[#9ec6ff]">
           {t.support}
         </Link>
       </div>
@@ -274,10 +307,9 @@ function AddressQr({ value }: { value: string }) {
   const size = 21;
   const cells: boolean[] = [];
   for (let i = 0; i < size * size; i++) {
-    const code = value.charCodeAt(i % value.length) + i * 13;
+    const code = value.charCodeAt(i % Math.max(value.length, 1)) + i * 13;
     cells.push(code % 3 !== 0);
   }
-
   function finder(x: number, y: number) {
     for (let r = 0; r < 7; r += 1) {
       for (let c = 0; c < 7; c += 1) {
@@ -289,21 +321,11 @@ function AddressQr({ value }: { value: string }) {
   finder(0, 0);
   finder(size - 7, 0);
   finder(0, size - 7);
-
   return (
     <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full">
       <rect width={size} height={size} fill="#fff" />
       {cells.map((on, i) =>
-        on ? (
-          <rect
-            key={i}
-            x={i % size}
-            y={Math.floor(i / size)}
-            width="1"
-            height="1"
-            fill="#111"
-          />
-        ) : null
+        on ? <rect key={i} x={i % size} y={Math.floor(i / size)} width="1" height="1" fill="#111" /> : null
       )}
     </svg>
   );
