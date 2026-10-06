@@ -1,16 +1,16 @@
 export const SAMPLE_WITHDRAW_LOGS = [
+  { user: "+92***1144", amount: "25,000 PKR" },
+  { user: "na***@outlook.com", amount: "120.00 USD" },
+  { user: "im***@gmail.com", amount: "200.00 EUR" },
+  { user: "sa***@hotmail.com", amount: "80.00 GBP" },
+  { user: "+971***3344", amount: "920.00 AED" },
+  { user: "+966***5512", amount: "400.00 SAR" },
+  { user: "+91***8821", amount: "8,500 INR" },
+  { user: "+86***6677", amount: "680.00 CNY" },
   { user: "ah***@gmail.com", amount: "50.00 USDT" },
-  { user: "na***@outlook.com", amount: "120.00 USDT" },
-  { user: "+92***1144", amount: "80.00 USDT" },
-  { user: "im***@gmail.com", amount: "200.00 USDT" },
-  { user: "sa***@hotmail.com", amount: "35.00 USDT" },
-  { user: "+91***8821", amount: "90.00 USDT" },
-  { user: "yu***@gmail.com", amount: "150.00 USDT" },
-  { user: "fa***@yahoo.com", amount: "60.00 USDT" },
-  { user: "+971***3344", amount: "250.00 USDT" },
-  { user: "ko***@gmail.com", amount: "40.00 USDT" },
-  { user: "bi***@gmail.com", amount: "75.00 USDT" },
-  { user: "+86***6677", amount: "100.00 USDT" },
+  { user: "fa***@yahoo.com", amount: "60.00 USD" },
+  { user: "ko***@gmail.com", amount: "75.00 EUR" },
+  { user: "yu***@gmail.com", amount: "15,500 PKR" },
 ];
 
 export function fillWithdrawLogs(live: { user: string; amount: string }[]) {

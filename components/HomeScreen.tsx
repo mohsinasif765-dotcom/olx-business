@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/i18n";
 import { inviteLink } from "@/lib/invite";
 import { getSessionAccount } from "@/lib/session";
 import { loadWallets } from "@/lib/wallets";
-import { SAMPLE_WITHDRAW_LOGS } from "@/lib/withdraw-logs";
+import { fillWithdrawLogs, SAMPLE_WITHDRAW_LOGS } from "@/lib/withdraw-logs";
 
 const LOG_ITEM_HEIGHT = 58;
 const LOG_BUFFER = 3;
@@ -44,7 +44,9 @@ export function HomeScreen() {
         }
         if (data.siteName) setSiteName(data.siteName);
         setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
-        setLogs(Array.isArray(data.logs) && data.logs.length ? data.logs : SAMPLE_WITHDRAW_LOGS);
+        const incoming = Array.isArray(data.logs) ? data.logs : [];
+        const hasFiat = incoming.some((row) => !/USDT\s*$/i.test(row.amount));
+        setLogs(hasFiat ? fillWithdrawLogs(incoming) : SAMPLE_WITHDRAW_LOGS);
         if (data.wallets) {
           setWallets({ invest: data.wallets.invest, brokerage: data.wallets.brokerage });
         } else {
@@ -58,6 +60,10 @@ export function HomeScreen() {
         setInviteHref(`${origin}/register`);
       });
   }, []);
+
+  useEffect(() => {
+    setLogs(SAMPLE_WITHDRAW_LOGS);
+  }, [SAMPLE_WITHDRAW_LOGS]);
 
   const ticker = logs.length ? logs : SAMPLE_WITHDRAW_LOGS;
   const logCount = ticker.length;

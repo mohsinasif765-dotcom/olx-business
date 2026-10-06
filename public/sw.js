@@ -7,5 +7,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(fetch(event.request));
+  if (event.request.method !== "GET") return;
+  event.respondWith(
+    fetch(event.request).catch(
+      () => new Response("OLX Business is offline.", { status: 503, headers: { "Content-Type": "text/plain" } })
+    )
+  );
 });

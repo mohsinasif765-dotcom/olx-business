@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
     const snap = payload as {
       settings?: { siteName?: string };
-      withdraws?: { account: string; amount: number; status: string }[];
+      withdraws?: { account: string; amount: number; status: string; wallet?: string }[];
     };
     const logs = fillWithdrawLogs(
       stripDemoRows(snap.withdraws || [])
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         .slice(0, 12)
         .map((row) => ({
           user: mask(row.account),
-          amount: `${money(row.amount)} USDT`,
+          amount: `${money(row.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${String(row.wallet || "USDT").toUpperCase()}`,
         }))
     );
 

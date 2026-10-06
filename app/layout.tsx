@@ -10,8 +10,11 @@ export const metadata: Metadata = {
   applicationName: "OLX Business",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icon",
-    apple: "/icon",
+    icon: [
+      { url: "/app-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: "/logo.png",
   },
   appleWebApp: {
     capable: true,
