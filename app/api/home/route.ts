@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readSnapshotPayload } from "@/lib/server/snapshot";
+import { readSettings, readWithdraws } from "@/lib/server/db-tables";
 import { fillWithdrawLogs } from "@/lib/withdraw-logs";
 import { stripDemoRows } from "@/lib/server/strip-demo";
 import { zuvoAdmin } from "@/lib/zuvo";
@@ -40,21 +40,18 @@ export async function GET(request: Request) {
   const db = zuvoAdmin();
 
   try {
-    const [stats, payload, mine] = await Promise.all([
+    const [stats, settings, withdraws, mine] = await Promise.all([
       memberStats(),
-      readSnapshotPayload(),
+      readSettings(),
+      readWithdraws(),
       account
         ? db.from("members").select("invest,brokerage,invite").eq("account", account).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
     if (mine.error) return NextResponse.json({ error: mine.error.message }, { status: 500 });
 
-    const snap = payload as {
-      settings?: { siteName?: string };
-      withdraws?: { account: string; amount: number; status: string; wallet?: string }[];
-    };
     const logs = fillWithdrawLogs(
-      stripDemoRows(snap.withdraws || [])
+      stripDemoRows(withdraws)
         .filter((row) => row.status !== "rejected")
         .slice(0, 12)
         .map((row) => ({
@@ -72,7 +69,7 @@ export async function GET(request: Request) {
       : { invest: 0, brokerage: 0, invite: "" };
 
     return NextResponse.json({
-      siteName: snap.settings?.siteName || "OLX Business",
+      siteName: settings?.siteName || "OLX Business",
       users: stats.users,
       revenue: stats.revenue,
       logs,

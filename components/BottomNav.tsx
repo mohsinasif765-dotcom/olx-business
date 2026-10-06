@@ -20,12 +20,16 @@ function isTabActive(href: string, pathname: string) {
   if (href === "/mining-pool") {
     return pathname === "/mining-pool" || pathname === "/mining";
   }
+  if (href === "/shop") {
+    return pathname === "/shop" || pathname.startsWith("/shop/");
+  }
   return pathname === href;
 }
 
 const TABS = [
   { href: "/home", key: "home" as const, icon: HomeIcon },
   { href: "/vip", key: "vip" as const, icon: CrownIcon },
+  { href: "/shop", key: "shop" as const, icon: ShopIcon },
   { href: "/mining-pool", key: "miningPool" as const, icon: PoolIcon },
   { href: "/team", key: "team" as const, icon: TeamIcon },
   { href: "/me", key: "me" as const, icon: MeIcon },
@@ -76,6 +80,14 @@ function CrownIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <path d="M5 18h14l1.6-10-4.8 3.2L12 5.5 8.2 11.2 3.4 8 5 18z" />
+    </svg>
+  );
+}
+
+function ShopIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 7V6a6 6 0 1112 0v1h2.2A1.8 1.8 0 0122 8.8v11.4A1.8 1.8 0 0120.2 22H3.8A1.8 1.8 0 012 20.2V8.8A1.8 1.8 0 013.8 7H6zm2 0h8V6a4 4 0 10-8 0v1z" />
     </svg>
   );
 }

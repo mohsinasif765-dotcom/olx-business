@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  let body: { account?: string; planId?: string };
+  let body: { account?: string; planId?: string; catalog?: string };
   try {
     body = await request.json();
   } catch {
@@ -41,9 +41,10 @@ export async function POST(request: Request) {
   }
   const account = key(String(body.account || ""));
   const planId = String(body.planId || "").trim();
+  const catalog = body.catalog === "shop" ? "shop" : "car";
   if (!account || !planId) return NextResponse.json({ error: "required" }, { status: 400 });
   try {
-    const result = await buyPackage({ account, planId });
+    const result = await buyPackage({ account, planId, catalog });
     if (!result.ok) {
       const status = result.error === "login" ? 401 : result.error === "insufficient" ? 400 : 400;
       return NextResponse.json(result, { status });

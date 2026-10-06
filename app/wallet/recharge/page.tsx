@@ -56,6 +56,7 @@ function RechargeDetail() {
   const [copied, setCopied] = useState("");
   const [amount, setAmount] = useState("");
   const [hash, setHash] = useState("");
+  const [slip, setSlip] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -127,7 +128,28 @@ function RechargeDetail() {
       setMessage(`${t.minAmount} ${asset.min} ${asset.symbol}`);
       return;
     }
+    if (!slip) {
+      setMessage(t.slipRequired);
+      return;
+    }
     setBusy(true);
+    let slipUrl = "";
+    try {
+      const form = new FormData();
+      form.append("file", slip);
+      const up = await fetch("/api/proof", { method: "POST", body: form });
+      const upData = (await up.json()) as { url?: string };
+      if (!up.ok || !upData.url) {
+        setBusy(false);
+        setMessage(t.slipRequired);
+        return;
+      }
+      slipUrl = upData.url;
+    } catch {
+      setBusy(false);
+      setMessage(t.slipRequired);
+      return;
+    }
     const item: HistoryItem = {
       id: String(Date.now()),
       coin: asset.name,
@@ -142,12 +164,14 @@ function RechargeDetail() {
       amount: Number(amount),
       network: asset.name,
       txHash: hash,
+      slipUrl,
       status: "pending",
     });
     setBusy(false);
     setMessage(t.submittedPending);
     setAmount("");
     setHash("");
+    setSlip(null);
   }
 
   return (
@@ -278,12 +302,30 @@ function RechargeDetail() {
               ))}
             </div>
           </div>
-          <input
-            value={hash}
-            onChange={(e) => setHash(e.target.value)}
-            placeholder={t.paymentRef}
-            className="auth-input"
-          />
+          <label className="block">
+            <span className="mb-1 block text-[12px] text-white/55">
+              {crypto ? t.cryptoRefLabel : t.bankRefLabel}
+            </span>
+            <p className="mb-2 text-[11px] leading-4 text-white/40">
+              {crypto ? t.cryptoRefHint : t.bankRefHint}
+            </p>
+            <input
+              value={hash}
+              onChange={(e) => setHash(e.target.value)}
+              placeholder={crypto ? t.cryptoRefPlaceholder : t.bankRefPlaceholder}
+              className="auth-input"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-[12px] text-white/55">{t.uploadSlip}</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="auth-input"
+              onChange={(event) => setSlip(event.target.files?.[0] || null)}
+            />
+            {slip ? <p className="mt-1 text-[12px] text-white/50">{slip.name}</p> : null}
+          </label>
           <button type="submit" className="vip-recharge-btn w-full" disabled={busy || paused}>
             {t.submitOrder}
           </button>

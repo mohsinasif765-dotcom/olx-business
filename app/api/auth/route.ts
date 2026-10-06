@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { displayName } from "@/lib/member-name";
 import { readSite } from "@/lib/server/site";
-import { zuvoAdmin } from "@/lib/zuvo";
+import { newUserHandle } from "@/lib/server/handle";
 
 function accountKey(account: string) {
   return account.trim().toLowerCase().replace(/\s+/g, "");
@@ -132,15 +132,7 @@ export async function POST(request: Request) {
     const { data: sponsor } = await db.from("members").select("account").eq("invite", inviteCode).maybeSingle();
     if (sponsor && String(sponsor.account).toLowerCase() !== account) upline = inviteCode;
   }
-  let invite = String(Date.now()).slice(-6);
-  for (let i = 0; i < 8; i += 1) {
-    const code = String(100000 + Math.floor(Math.random() * 900000));
-    const { data: taken } = await db.from("members").select("id").eq("invite", code).maybeSingle();
-    if (!taken) {
-      invite = code;
-      break;
-    }
-  }
+  let invite = await newUserHandle();
 
   const row = {
     id: `m${Date.now().toString(36)}`,

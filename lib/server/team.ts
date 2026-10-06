@@ -1,5 +1,5 @@
 import { zuvoAdmin } from "@/lib/zuvo";
-import { readSnapshotPayload } from "@/lib/server/snapshot";
+import { readRecharges, readSettings, readWithdraws } from "@/lib/server/db-tables";
 
 export type TeamMember = {
   account: string;
@@ -73,9 +73,11 @@ function maskAccount(account: string) {
 
 export async function loadTeam(account: string, date = "", level?: string) {
   const db = zuvoAdmin();
-  const [{ data: members, error: memberError }, snap] = await Promise.all([
+  const [{ data: members, error: memberError }, settings, rechargeRows, withdrawRows] = await Promise.all([
     db.from("members").select("account,invite,upline,invest,brokerage,vip,status,joined"),
-    readSnapshotPayload(),
+    readSettings(),
+    readRecharges(),
+    readWithdraws(),
   ]);
   if (memberError) throw memberError;
 
@@ -101,20 +103,10 @@ export async function loadTeam(account: string, date = "", level?: string) {
     await db.from("members").update({ invite: me.invite }).eq("account", me.account);
   }
 
-  const payload = (snap || {}) as {
-    settings?: {
-      siteName?: string;
-      commissionL1?: number;
-      commissionL2?: number;
-      commissionL3?: number;
-    };
-    recharges?: { account: string; amount: number; status: string; at: string }[];
-    withdraws?: { account: string; amount: number; status: string; at: string }[];
-  };
   const rates = {
-    l1: Number(payload.settings?.commissionL1) || 15,
-    l2: Number(payload.settings?.commissionL2) || 3,
-    l3: Number(payload.settings?.commissionL3) || 1,
+    l1: Number(settings?.commissionL1) || 15,
+    l2: Number(settings?.commissionL2) || 3,
+    l3: Number(settings?.commissionL3) || 1,
   };
 
   const l1 = rows.filter((r) => r.upline === me.invite && r.account !== me.account && joinedBy(r.joined, date));
@@ -127,10 +119,10 @@ export async function loadTeam(account: string, date = "", level?: string) {
   const downlines = [...l1, ...l2, ...l3];
   const teamAccounts = new Set(downlines.map((r) => r.account));
 
-  const recharges = (payload.recharges || []).filter(
+  const recharges = rechargeRows.filter(
     (row) => teamAccounts.has(key(row.account)) && row.status !== "rejected" && inDay(row.at, date)
   );
-  const withdraws = (payload.withdraws || []).filter(
+  const withdraws = withdrawRows.filter(
     (row) => teamAccounts.has(key(row.account)) && row.status !== "rejected" && inDay(row.at, date)
   );
 
@@ -153,7 +145,7 @@ export async function loadTeam(account: string, date = "", level?: string) {
   return {
     invite: me.invite,
     brokerage: me.brokerage,
-    siteName: payload.settings?.siteName || "OLX Business",
+    siteName: settings?.siteName || "OLX Business",
     rates,
     totals: {
       team: downlines.length,

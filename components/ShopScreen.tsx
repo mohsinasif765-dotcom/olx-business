@@ -5,19 +5,17 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { type CarKind } from "@/lib/cars";
-import { buyCarPackage } from "@/lib/invest";
+import { buyShopPackage } from "@/lib/invest";
 import { getSessionAccount } from "@/lib/session";
-import { useCarPlans } from "@/lib/use-car-plans";
+import { type ShopKind } from "@/lib/shop";
 import { useLanguage } from "@/lib/i18n";
+import { useShopPlans } from "@/lib/use-shop-plans";
 
-export { VIP_PLANS } from "@/lib/cars";
-
-export function VipScreen() {
+export function ShopScreen() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { plans: allPlans, settings, loaded } = useCarPlans();
-  const [tab, setTab] = useState<CarKind | "all">("all");
+  const { plans: allPlans, settings, loaded } = useShopPlans();
+  const [tab, setTab] = useState<ShopKind | "all">("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const plans = useMemo(
@@ -37,7 +35,7 @@ export function VipScreen() {
     }
     setNote("");
     setBusy(planId);
-    const result = await buyCarPackage(planId);
+    const result = await buyShopPackage(planId);
     setBusy(null);
     if (result.ok) {
       router.push("/mining-pool");
@@ -48,7 +46,7 @@ export function VipScreen() {
       router.push(`/wallet/select?plan=${planId}`);
       return;
     }
-    if (result.error === "paused") setNote("Car packages are paused in admin settings.");
+    if (result.error === "paused") setNote("Shop packages are paused in admin settings.");
     else if (result.error === "frozen") setNote("This account cannot invest right now.");
     else if (result.error === "login") router.push("/");
     else setNote("Could not invest. Try again.");
@@ -65,8 +63,8 @@ export function VipScreen() {
           <LanguageSwitch globe />
         </header>
 
-        <h1 className="mb-1 px-1 text-[22px] font-semibold">{t.carsTitle}</h1>
-        <p className="mb-4 px-1 text-[13px] leading-5 text-white/55">{t.carIntro}</p>
+        <h1 className="mb-1 px-1 text-[22px] font-semibold">{t.shopTitle}</h1>
+        <p className="mb-4 px-1 text-[13px] leading-5 text-white/55">{t.shopIntro}</p>
         {settings.maintenance ? (
           <p className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-200">
             {settings.maintenance}
@@ -81,11 +79,11 @@ export function VipScreen() {
           <button type="button" className={tab === "all" ? "is-on" : ""} onClick={() => setTab("all")}>
             {t.allCars}
           </button>
-          <button type="button" className={tab === "new" ? "is-on" : ""} onClick={() => setTab("new")}>
-            {t.newCars}
+          <button type="button" className={tab === "jewelry" ? "is-on" : ""} onClick={() => setTab("jewelry")}>
+            {t.jewelry}
           </button>
-          <button type="button" className={tab === "used" ? "is-on" : ""} onClick={() => setTab("used")}>
-            {t.usedCars}
+          <button type="button" className={tab === "electronics" ? "is-on" : ""} onClick={() => setTab("electronics")}>
+            {t.electronics}
           </button>
         </div>
 
@@ -93,38 +91,38 @@ export function VipScreen() {
           {!loaded ? (
             <p className="px-1 text-[13px] text-white/50">Loading packages…</p>
           ) : !settings.packagesOn ? (
-            <p className="px-1 text-[13px] text-white/50">Car packages are paused in admin settings.</p>
+            <p className="px-1 text-[13px] text-white/50">Shop packages are paused in admin settings.</p>
           ) : plans.length === 0 ? (
             <p className="px-1 text-[13px] text-white/50">No packages in this tab yet.</p>
           ) : (
             plans.map((plan) => (
-            <article key={plan.id} className="car-card">
-              <div className="car-photo">
-                <img
-                  src={plan.image}
-                  alt={plan.name}
-                  onError={(event) => {
-                    event.currentTarget.src =
-                      plan.kind === "used" ? "/cars/used-compact.jpg" : "/cars/city-sedan.jpg";
-                  }}
-                />
-                <span className="car-badge">{plan.kind === "used" ? t.usedCars : t.newCars}</span>
-              </div>
-              <div className="p-3.5">
-                <h2 className="mb-3 text-[16px] font-semibold">{plan.name}</h2>
-                <Row label={t.investAmount} value={plan.invest} />
-                <Row label={t.expectedReturn} value={plan.returns} accent />
-                <Row label={t.planTerm} value={plan.term} />
-                <button
-                  type="button"
-                  className="car-invest"
-                  disabled={busy === plan.id}
-                  onClick={() => void investNow(plan.id)}
-                >
-                  {busy === plan.id ? "Investing…" : t.investCta}
-                </button>
-              </div>
-            </article>
+              <article key={plan.id} className="car-card">
+                <div className="car-photo">
+                  <img
+                    src={plan.image}
+                    alt={plan.name}
+                    onError={(event) => {
+                      event.currentTarget.src =
+                        plan.kind === "electronics" ? "/cars/executive.jpg" : "/cars/luxury.jpg";
+                    }}
+                  />
+                  <span className="car-badge">{plan.kind === "electronics" ? t.electronics : t.jewelry}</span>
+                </div>
+                <div className="p-3.5">
+                  <h2 className="mb-3 text-[16px] font-semibold">{plan.name}</h2>
+                  <Row label={t.investAmount} value={plan.invest} />
+                  <Row label={t.expectedReturn} value={plan.returns} accent />
+                  <Row label={t.planTerm} value={plan.term} />
+                  <button
+                    type="button"
+                    className="car-invest"
+                    disabled={busy === plan.id}
+                    onClick={() => void investNow(plan.id)}
+                  >
+                    {busy === plan.id ? "Investing…" : t.investCta}
+                  </button>
+                </div>
+              </article>
             ))
           )}
         </div>

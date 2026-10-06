@@ -1,27 +1,17 @@
-import { isPlanLocked } from "@/lib/cars";
-import { listLivePlans } from "@/lib/server/car-catalog";
-import { clearSnapshotCache, readSnapshotPayload, rememberSnapshot } from "@/lib/server/snapshot";
+import { payTeamEarnings } from "@/lib/server/earnings";
+import {
+  insertHolding,
+  insertLedgerTx,
+  insertShopHolding,
+  readHoldings,
+  readSettings,
+  readShopHoldings,
+  type HoldingRow,
+} from "@/lib/server/db-tables";
 import { zuvoAdmin } from "@/lib/zuvo";
 
-export type CarHolding = {
-  id: string;
-  account: string;
-  planId: string;
-  name: string;
-  kind: string;
-  invest: string;
-  investAmount: number;
-  returns: string;
-  term: string;
-  image: string;
-  status: "active" | "ended";
-  startedAt: string;
-};
-
-type Snapshot = {
-  holdings?: CarHolding[];
-  settings?: { packagesOn?: boolean; maintenance?: string; siteName?: string };
-};
+export type CarHolding = HoldingRow;
+export type CatalogKind = "car" | "shop";
 
 function money(value: unknown) {
   const n = Number(value);
@@ -33,55 +23,34 @@ export function parseInvestMin(range: string) {
   return match ? Number(match[1]) : 0;
 }
 
-export async function readSnapshot(): Promise<Snapshot> {
-  return (await readSnapshotPayload()) as Snapshot;
-}
-
-async function writeSnapshot(payload: Record<string, unknown>) {
-  const { error } = await zuvoAdmin().from("ops_snapshot").upsert({
-    id: 1,
-    payload,
-    updated_at: new Date().toISOString(),
-  });
-  if (error) {
-    clearSnapshotCache();
-    throw error;
-  }
-  rememberSnapshot(payload);
+function holdingImage(catalog: CatalogKind, planId: string, image: string) {
+  if (catalog === "shop") return `/api/shop-photo/${encodeURIComponent(planId)}`;
+  if (image.startsWith("data:image/")) return `/api/car-photo/${encodeURIComponent(planId)}`;
+  return image || `/api/car-photo/${encodeURIComponent(planId)}`;
 }
 
 export async function listHoldings(account?: string) {
-  const snap = await readSnapshot();
-  const rows = Array.isArray(snap.holdings) ? snap.holdings : [];
-  if (!account) return rows;
-  return rows.filter((row) => row.account === account);
+  const [cars, shop] = await Promise.all([readHoldings(account), readShopHoldings(account)]);
+  return [...cars, ...shop].sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
 }
 
-export async function buyPackage(input: { account: string; planId: string }) {
+export async function buyPackage(input: { account: string; planId: string; catalog?: CatalogKind }) {
   const account = input.account.trim().toLowerCase();
+  const catalog: CatalogKind = input.catalog === "shop" ? "shop" : "car";
+  const table = catalog === "shop" ? "shop_packages" : "car_packages";
   const db = zuvoAdmin();
-  const snap = (await readSnapshotPayload(true)) as Snapshot;
-  if (snap.settings && snap.settings.packagesOn === false) {
+  const settings = await readSettings();
+  if (settings && settings.packagesOn === false) {
     return { ok: false as const, error: "paused" as const };
   }
 
   const { data: plan, error: planError } = await db
-    .from("car_packages")
+    .from(table)
     .select("id,name,kind,invest,returns,term,image,enabled")
     .eq("id", input.planId)
     .maybeSingle();
   if (planError) throw planError;
   if (!plan || plan.enabled === false) return { ok: false as const, error: "missing" as const };
-
-  const livePlans = await listLivePlans();
-  const owned = new Set(
-    (Array.isArray(snap.holdings) ? snap.holdings : [])
-      .filter((row) => row.account === account)
-      .map((row) => row.planId)
-  );
-  if (isPlanLocked(livePlans, String(plan.id), owned)) {
-    return { ok: false as const, error: "locked" as const };
-  }
 
   const amount = parseInvestMin(String(plan.invest));
   if (amount <= 0) return { ok: false as const, error: "missing" as const };
@@ -117,31 +86,22 @@ export async function buyPackage(input: { account: string; planId: string }) {
     investAmount: amount,
     returns: String(plan.returns),
     term: String(plan.term),
-    image: String(plan.image),
+    image: holdingImage(catalog, String(plan.id), String(plan.image || "")),
     status: "active",
     startedAt: new Date().toISOString(),
   };
-
-  const payload = { ...(snap as Record<string, unknown>), holdings: [holding, ...(Array.isArray(snap.holdings) ? snap.holdings : [])] };
-  await writeSnapshot(payload);
-  try {
-    await db.from("car_holdings").upsert({
-      id: holding.id,
-      account: holding.account,
-      plan_id: holding.planId,
-      name: holding.name,
-      kind: holding.kind,
-      invest: holding.invest,
-      invest_amount: holding.investAmount,
-      returns: holding.returns,
-      term: holding.term,
-      image: holding.image,
-      status: holding.status,
-      started_at: holding.startedAt,
-    });
-  } catch {
-    /* optional table */
-  }
-
+  if (catalog === "shop") await insertShopHolding(holding);
+  else await insertHolding(holding);
+  await insertLedgerTx({
+    id: `i${holding.id}`,
+    account,
+    kind: "invest",
+    amount,
+    wallet: "invest",
+    status: "paid",
+    note: `Package ${holding.name}`,
+    at: holding.startedAt,
+  });
+  await payTeamEarnings(account, amount, `invest ${holding.name}`);
   return { ok: true as const, holding, invest: nextInvest };
 }

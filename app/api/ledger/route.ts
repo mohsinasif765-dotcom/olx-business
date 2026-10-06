@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { insertLedgerTx } from "@/lib/server/db-tables";
 import { appendList } from "@/lib/server/ledger";
 import { readSite } from "@/lib/server/site";
 
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
     wallet?: string;
     address?: string;
     txHash?: string;
+    slipUrl?: string;
     from?: string;
     to?: string;
     status?: string;
@@ -46,9 +48,20 @@ export async function POST(request: Request) {
       amount,
       network: body.network || "USDT",
       txHash: body.txHash || "",
-      status: body.status || "paid",
+      status: body.status || "pending",
       at,
       note: "",
+      slipUrl: body.slipUrl || "",
+    });
+    await insertLedgerTx({
+      id: `t${id}`,
+      account,
+      kind: "deposit",
+      amount,
+      wallet: "invest",
+      status: body.status || "pending",
+      note: body.slipUrl || body.txHash || body.network || "",
+      at,
     });
   } else if (kind === "withdraws") {
     await appendList("withdraws", {
@@ -61,6 +74,16 @@ export async function POST(request: Request) {
       at,
       note: "",
     });
+    await insertLedgerTx({
+      id: `t${id}`,
+      account,
+      kind: "withdraw",
+      amount,
+      wallet: "invest",
+      status: body.status || "pending",
+      note: body.address || "",
+      at,
+    });
   } else {
     await appendList("transfers", {
       id,
@@ -68,6 +91,16 @@ export async function POST(request: Request) {
       from: body.from || "invest",
       to: body.to || "brokerage",
       amount,
+      at,
+    });
+    await insertLedgerTx({
+      id: `t${id}`,
+      account,
+      kind: "transfer",
+      amount,
+      wallet: body.to || "brokerage",
+      status: "paid",
+      note: `${body.from || "invest"} → ${body.to || "brokerage"}`,
       at,
     });
   }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { type CarKind, type CarPlan } from "@/lib/cars";
 import { adminCors } from "@/lib/server/admin-cors";
 import { listLivePlans, replacePlans } from "@/lib/server/car-catalog";
-import { readSnapshotPayload } from "@/lib/server/snapshot";
+import { readSettings } from "@/lib/server/db-tables";
 
 const OPS_KEY = process.env.OLX_OPS_KEY || "olx-ops-local";
 
@@ -59,16 +59,15 @@ export async function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const [plans, payload] = await Promise.all([listLivePlans(), readSnapshotPayload()]);
-    const settings = (payload.settings || {}) as Record<string, unknown>;
+    const [plans, settings] = await Promise.all([listLivePlans(), readSettings()]);
     return json(request, {
       plans,
       settings: {
-        siteName: String(settings.siteName || "OLX Business"),
-        packagesOn: settings.packagesOn !== false,
-        maintenance: String(settings.maintenance || ""),
+        siteName: String(settings?.siteName || "OLX Business"),
+        packagesOn: settings?.packagesOn !== false,
+        maintenance: String(settings?.maintenance || ""),
       },
-    }, 200, "public, max-age=10, stale-while-revalidate=30");
+    }, 200, "no-store");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zuvo read failed";
     return json(request, { error: message, plans: [], settings: { siteName: "OLX Business", packagesOn: true, maintenance: "" } }, 200);

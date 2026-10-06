@@ -1,28 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { type CarPlan } from "@/lib/cars";
+import { type ShopPlan } from "@/lib/shop";
+import { type CarSiteSettings } from "@/lib/use-car-plans";
 
-function withLocalPhoto(plan: CarPlan): CarPlan {
+function withLocalPhoto(plan: ShopPlan): ShopPlan {
   if (!plan.image) {
-    return { ...plan, image: "/cars/city-sedan.jpg" };
+    return { ...plan, image: plan.kind === "electronics" ? "/cars/executive.jpg" : "/cars/luxury.jpg" };
   }
   return plan;
 }
 
-export type CarSiteSettings = {
-  siteName: string;
-  packagesOn: boolean;
-  maintenance: string;
-};
-
-type PlansPayload = { plans?: CarPlan[]; settings?: Partial<CarSiteSettings> };
+type PlansPayload = { plans?: ShopPlan[]; settings?: Partial<CarSiteSettings> };
 
 let inflight: Promise<PlansPayload | null> | null = null;
 
 function loadPlans() {
   if (inflight) return inflight;
-  inflight = fetch("/api/car-plans", { cache: "no-store" })
+  inflight = fetch("/api/shop-plans", { cache: "no-store" })
     .then((res) => (res.ok ? res.json() : null))
     .then((data: PlansPayload | null) => data)
     .catch(() => null)
@@ -32,8 +27,8 @@ function loadPlans() {
   return inflight;
 }
 
-export function useCarPlans() {
-  const [plans, setPlans] = useState<CarPlan[]>([]);
+export function useShopPlans() {
+  const [plans, setPlans] = useState<ShopPlan[]>([]);
   const [settings, setSettings] = useState<CarSiteSettings>({
     siteName: "OLX Business",
     packagesOn: true,
@@ -71,10 +66,10 @@ export function useCarPlans() {
     };
   }, []);
 
-  const vipPlans = useMemo(
+  const shopPlans = useMemo(
     () => plans.map((plan) => ({ id: plan.id, name: plan.name, recharge: plan.invest })),
     [plans]
   );
 
-  return { plans, vipPlans, settings, loaded };
+  return { plans, shopPlans, settings, loaded };
 }

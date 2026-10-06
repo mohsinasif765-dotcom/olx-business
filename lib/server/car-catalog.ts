@@ -1,4 +1,4 @@
-import { CAR_PLANS, type CarKind, type CarPlan } from "@/lib/cars";
+import { type CarKind, type CarPlan } from "@/lib/cars";
 import { zuvoAdmin } from "@/lib/zuvo";
 
 type PackageRow = {
@@ -8,13 +8,12 @@ type PackageRow = {
   invest: string;
   returns: string;
   term: string;
-  image: string;
   enabled: boolean;
 };
 
-let plansHold: { at: number; plans: CarPlan[] } | null = null;
-let seedStarted = false;
-const PLANS_TTL = 15000;
+function photoUrl(id: string) {
+  return `/api/car-photo/${encodeURIComponent(id)}`;
+}
 
 function toPlan(row: PackageRow): CarPlan {
   return {
@@ -24,32 +23,29 @@ function toPlan(row: PackageRow): CarPlan {
     invest: row.invest,
     returns: row.returns,
     term: row.term,
-    image: row.image,
+    image: photoUrl(row.id),
   };
 }
 
 export async function listLivePlans(): Promise<CarPlan[]> {
-  if (plansHold && Date.now() - plansHold.at < PLANS_TTL) return plansHold.plans;
-  const { data, error } = await zuvoAdmin()
+  const query = zuvoAdmin()
     .from("car_packages")
-    .select("id,name,kind,invest,returns,term,image,enabled")
+    .select("id,name,kind,invest,returns,term,enabled")
     .eq("enabled", true)
-    .order("id");
-  if (error) throw error;
-  const rows = (data || []) as PackageRow[];
-  if (!rows.length) {
-    if (!seedStarted) {
-      seedStarted = true;
-      void seedPackages().then(() => {
-        plansHold = null;
-      });
-    }
-    plansHold = { at: Date.now(), plans: CAR_PLANS };
-    return CAR_PLANS;
+    .limit(1000);
+  let { data, error } = await query.order("updated_at", { ascending: false });
+  if (error) {
+    const retry = await zuvoAdmin()
+      .from("car_packages")
+      .select("id,name,kind,invest,returns,term,enabled")
+      .eq("enabled", true)
+      .limit(1000)
+      .order("id");
+    data = retry.data;
+    error = retry.error;
   }
-  const plans = rows.map(toPlan);
-  plansHold = { at: Date.now(), plans };
-  return plans;
+  if (error) throw error;
+  return ((data || []) as PackageRow[]).map(toPlan);
 }
 
 export async function replacePlans(plans: CarPlan[]) {
@@ -72,21 +68,6 @@ export async function replacePlans(plans: CarPlan[]) {
     }))
   );
   if (error) throw error;
-  plansHold = { at: Date.now(), plans };
 }
 
-async function seedPackages() {
-  const { error } = await zuvoAdmin().from("car_packages").upsert(
-    CAR_PLANS.map((plan) => ({
-      id: plan.id,
-      name: plan.name,
-      kind: plan.kind,
-      invest: plan.invest,
-      returns: plan.returns,
-      term: plan.term,
-      image: plan.image,
-      enabled: true,
-    }))
-  );
-  if (error) throw error;
-}
+export function clearPlanCache() {}

@@ -64,11 +64,16 @@ export function MiningPoolScreen() {
         </p>
 
         {settings.packagesOn ? (
-          <Link href="/vip" className="mp-boost mb-5">
-            {t.improvePower}
-          </Link>
+          <div className="mb-5 grid grid-cols-2 gap-2">
+            <Link href="/vip" className="mp-boost">
+              {t.improvePower}
+            </Link>
+            <Link href="/shop" className="mp-boost">
+              {t.shop}
+            </Link>
+          </div>
         ) : (
-          <p className="mb-5 text-center text-[13px] text-white/50">Car packages are paused in admin settings.</p>
+          <p className="mb-5 text-center text-[13px] text-white/50">Packages are paused in admin settings.</p>
         )}
 
         <h2 className="mb-3 text-[15px] font-semibold">{t.miningRecords}</h2>
@@ -83,7 +88,7 @@ export function MiningPoolScreen() {
               </Link>
             </p>
           ) : active.length === 0 ? (
-            <p className="px-1 text-[13px] text-white/50">No active packages yet. Choose a car to invest.</p>
+            <p className="px-1 text-[13px] text-white/50">No active packages yet. Choose a car or shop package.</p>
           ) : (
             active.map((plan) => (
               <article key={plan.id} className="car-card">
@@ -95,6 +100,15 @@ export function MiningPoolScreen() {
                       event.currentTarget.src = "/cars/city-sedan.jpg";
                     }}
                   />
+                  <span className="car-badge">
+                    {plan.kind === "electronics"
+                      ? t.electronics
+                      : plan.kind === "jewelry"
+                        ? t.jewelry
+                        : plan.kind === "used"
+                          ? t.usedCars
+                          : t.newCars}
+                  </span>
                 </div>
                 <div className="p-3">
                   <p className="font-semibold">{plan.name}</p>

@@ -37,13 +37,21 @@ export async function loadGarage() {
 }
 
 export async function buyCarPackage(planId: string) {
+  return buyCatalogPackage(planId, "car");
+}
+
+export async function buyShopPackage(planId: string) {
+  return buyCatalogPackage(planId, "shop");
+}
+
+async function buyCatalogPackage(planId: string, catalog: "car" | "shop") {
   const account = getSessionAccount();
   if (!account) return { ok: false as const, error: "login" as const };
   try {
     const res = await fetch("/api/invest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account, planId }),
+      body: JSON.stringify({ account, planId, catalog }),
     });
     const data = (await res.json()) as { ok?: boolean; error?: string; need?: number };
     if (!res.ok || !data.ok) {

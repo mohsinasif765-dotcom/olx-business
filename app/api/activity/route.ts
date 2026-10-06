@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getActivity } from "@/lib/activities";
-import { patchSnapshot } from "@/lib/server/ledger";
+import { readActivityState, upsertActivityState } from "@/lib/server/db-tables";
 import { readSite } from "@/lib/server/site";
 import { zuvoAdmin } from "@/lib/zuvo";
 
@@ -78,29 +78,27 @@ export async function POST(request: Request) {
   let prize = "0.00";
   let streak = 0;
   try {
-    await patchSnapshot((payload) => {
-      const state = { ...((payload.activityState as Record<string, { checkin?: { date: string; streak: number }; lucky?: { date: string; prize: string } }>) || {}) };
-      const mine = { ...(state[account] || {}) };
-      if (action === "checkin") {
-        if (mine.checkin?.date === today) throw new Error("used");
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yKey = yesterday.toISOString().slice(0, 10);
-        streak = mine.checkin?.date === yKey && (mine.checkin.streak || 0) < 7 ? mine.checkin.streak + 1 : 1;
-        prize = CHECKIN[streak - 1] || "0.10";
-        mine.checkin = { date: today, streak };
-      } else {
-        if (mine.lucky?.date === today) throw new Error("used");
-        prize = PRIZES[Math.floor(Math.random() * PRIZES.length)];
-        mine.lucky = { date: today, prize };
+    const all = await readActivityState();
+    const mine = { ...(all[account] || {}) };
+    if (action === "checkin") {
+      if (mine.checkin?.date === today) {
+        return NextResponse.json({ error: "used" }, { status: 400 });
       }
-      state[account] = mine;
-      payload.activityState = state;
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === "used") {
-      return NextResponse.json({ error: "used" }, { status: 400 });
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yKey = yesterday.toISOString().slice(0, 10);
+      streak = mine.checkin?.date === yKey && (mine.checkin.streak || 0) < 7 ? mine.checkin.streak + 1 : 1;
+      prize = CHECKIN[streak - 1] || "0.10";
+      mine.checkin = { date: today, streak };
+    } else {
+      if (mine.lucky?.date === today) {
+        return NextResponse.json({ error: "used" }, { status: 400 });
+      }
+      prize = PRIZES[Math.floor(Math.random() * PRIZES.length)];
+      mine.lucky = { date: today, prize };
     }
+    await upsertActivityState(account, mine);
+  } catch (error) {
     throw error;
   }
   await creditInvest(account, Number(prize));
