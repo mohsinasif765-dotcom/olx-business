@@ -7,7 +7,7 @@ import { getCoin } from "@/lib/coins";
 import { CoinIcon } from "@/components/CoinIcon";
 import { useLanguage } from "@/lib/i18n";
 import { useCarPlans } from "@/lib/use-car-plans";
-import { getWallets, setWallet } from "@/lib/wallets";
+import { creditWallet } from "@/lib/wallets";
 
 type HistoryItem = {
   id: string;
@@ -87,7 +87,7 @@ function RechargeDetail() {
     );
     const credited = Number(amount);
     if (Number.isFinite(credited) && credited > 0 && asset.symbol === "USDT") {
-      setWallet("invest", getWallets().invest + credited);
+      void creditWallet("invest", credited);
     }
     setMessage(`${asset.name} ${amount} ${t.rechargeDone}`);
   }

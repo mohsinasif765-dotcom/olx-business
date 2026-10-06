@@ -44,12 +44,12 @@ export function clearSession() {
   window.localStorage.removeItem(SESSION_KEY);
 }
 
-export function signIn(input: {
+export async function signIn(input: {
   account: string;
   loginPassword: string;
   securityPassword?: string;
   isRegister: boolean;
-}): { ok: true } | { ok: false; error: "exists" | "badpass" | "required" } {
+}): Promise<{ ok: true } | { ok: false; error: "exists" | "badpass" | "required" }> {
   const account = input.account.trim();
   if (!account || !input.loginPassword.trim()) {
     return { ok: false, error: "required" };
@@ -57,36 +57,27 @@ export function signIn(input: {
 
   const key = accountKey(account);
   const all = readAccounts();
-  const existing = all[key];
-
-  if (input.isRegister) {
-    if (existing) return { ok: false, error: "exists" };
+  try {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const data = (await res.json()) as { ok?: boolean; error?: string; account?: string };
+    if (res.status === 409 || data.error === "exists") return { ok: false, error: "exists" };
+    if (res.status === 401 || data.error === "badpass") return { ok: false, error: "badpass" };
+    if (!res.ok || data.error === "required") return { ok: false, error: "required" };
     all[key] = {
-      account,
+      account: data.account || account,
       loginPassword: input.loginPassword,
-      securityPassword: input.securityPassword || "",
+      securityPassword: input.securityPassword || input.loginPassword,
     };
     writeAccounts(all);
-    setSessionAccount(account);
+    setSessionAccount(all[key].account);
     return { ok: true };
+  } catch {
+    return { ok: false, error: "required" };
   }
-
-  if (existing) {
-    if (existing.loginPassword !== input.loginPassword) {
-      return { ok: false, error: "badpass" };
-    }
-    setSessionAccount(existing.account);
-    return { ok: true };
-  }
-
-  all[key] = {
-    account,
-    loginPassword: input.loginPassword,
-    securityPassword: input.securityPassword || input.loginPassword,
-  };
-  writeAccounts(all);
-  setSessionAccount(account);
-  return { ok: true };
 }
 
 export function updatePasswords(patch: Partial<Pick<AccountRecord, "loginPassword" | "securityPassword">>) {

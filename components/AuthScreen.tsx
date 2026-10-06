@@ -39,7 +39,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
     if (getSessionAccount()) router.replace("/home");
   }, [router]);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const account =
@@ -67,7 +67,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       }
     }
 
-    const result = signIn({
+    const result = await signIn({
       account,
       loginPassword: password,
       securityPassword: String(data.get("securityPassword") || ""),

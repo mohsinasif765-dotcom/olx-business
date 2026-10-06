@@ -6,7 +6,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { useLanguage } from "@/lib/i18n";
 import { getSessionAccount } from "@/lib/session";
-import { getWallets } from "@/lib/wallets";
+import { loadWallets } from "@/lib/wallets";
 import { getInviteCode, inviteLink } from "@/lib/invite";
 
 const LOG_ITEM_HEIGHT = 58;
@@ -35,7 +35,7 @@ export function HomeScreen() {
 
   useEffect(() => {
     setLoggedIn(Boolean(getSessionAccount()));
-    setWallets(getWallets());
+    void loadWallets().then(setWallets);
     const origin = window.location.origin;
     setInviteHref(inviteLink(origin, getInviteCode()));
   }, []);

@@ -1,10 +1,8 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
 import { CAR_PLANS, type CarKind, type CarPlan } from "@/lib/cars";
 import { adminCors } from "@/lib/server/admin-cors";
+import { listLivePlans, replacePlans } from "@/lib/server/car-catalog";
 
-const FILE = path.join(process.cwd(), "data", "car-plans.json");
 const OPS_KEY = process.env.OLX_OPS_KEY || "olx-ops-local";
 
 function json(request: Request, data: unknown, status = 200) {
@@ -51,23 +49,17 @@ function clean(row: CarPlan): CarPlan {
   };
 }
 
-async function readPlans(): Promise<CarPlan[]> {
-  try {
-    const raw = await readFile(FILE, "utf8");
-    const parsed = JSON.parse(raw) as { plans?: unknown };
-    const rows = Array.isArray(parsed.plans) ? parsed.plans.filter(isPlan).map(clean) : [];
-    return rows.length ? rows : CAR_PLANS;
-  } catch {
-    return CAR_PLANS;
-  }
-}
-
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, { status: 204, headers: adminCors(request, "GET, PUT, POST, OPTIONS") });
 }
 
 export async function GET(request: Request) {
-  return json(request, { plans: await readPlans() });
+  try {
+    return json(request, { plans: await listLivePlans() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Zuvo read failed";
+    return json(request, { error: message, plans: CAR_PLANS }, 200);
+  }
 }
 
 export async function PUT(request: Request) {
@@ -85,7 +77,11 @@ export async function PUT(request: Request) {
     return json(request, { error: "Each plan needs name, type, invest, return, term, and a photo." }, 400);
   }
   const plans = incoming.map(clean);
-  await mkdir(path.dirname(FILE), { recursive: true });
-  await writeFile(FILE, `${JSON.stringify({ plans }, null, 2)}\n`, "utf8");
-  return json(request, { ok: true, plans });
+  try {
+    await replacePlans(plans);
+    return json(request, { ok: true, plans });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Zuvo write failed";
+    return json(request, { error: message }, 500);
+  }
 }

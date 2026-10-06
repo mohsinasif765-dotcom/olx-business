@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getCurrentAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
+import { debitWallet, loadWallets } from "@/lib/wallets";
 
 export type WithdrawRecord = {
   id: string;
@@ -30,8 +32,7 @@ export function WithdrawScreen() {
   const minPayout = 1;
 
   useEffect(() => {
-    const stored = Number(window.localStorage.getItem("olx-usdt-balance") || "0");
-    setBalance(Number.isFinite(stored) ? stored : 0);
+    void loadWallets().then((w) => setBalance(w.invest));
   }, []);
 
   const parsedAmount = Number(amount);
@@ -61,28 +62,38 @@ export function WithdrawScreen() {
       return;
     }
 
-    const item: WithdrawRecord = {
-      id: String(Date.now()),
-      wallet: "USDT",
-      address: address.trim(),
-      amount: parsedAmount.toFixed(6),
-      fee: fee.toFixed(6),
-      arrival: arrival.toFixed(6),
-      status: t.resultPending,
-      at: new Date().toLocaleString(),
-    };
-    const prev = JSON.parse(
-      window.localStorage.getItem("olx-withdraw-history") || "[]"
-    ) as WithdrawRecord[];
-    window.localStorage.setItem(
-      "olx-withdraw-history",
-      JSON.stringify([item, ...prev].slice(0, 20))
-    );
-    const next = Math.max(0, balance - parsedAmount);
-    window.localStorage.setItem("olx-usdt-balance", String(next));
-    router.push(
-      `/withdraw/result?amount=${item.amount}&wallet=${encodeURIComponent("USDT")}&arrival=${item.arrival}`
-    );
+    const session = getCurrentAccount();
+    if (session?.securityPassword && session.securityPassword !== password) {
+      setError(t.wrongPassword);
+      return;
+    }
+
+    void debitWallet("invest", parsedAmount).then((result) => {
+      if (!result.ok) {
+        setError(t.insufficient);
+        return;
+      }
+      const item: WithdrawRecord = {
+        id: String(Date.now()),
+        wallet: "USDT",
+        address: address.trim(),
+        amount: parsedAmount.toFixed(6),
+        fee: fee.toFixed(6),
+        arrival: arrival.toFixed(6),
+        status: t.resultPending,
+        at: new Date().toLocaleString(),
+      };
+      const prev = JSON.parse(
+        window.localStorage.getItem("olx-withdraw-history") || "[]"
+      ) as WithdrawRecord[];
+      window.localStorage.setItem(
+        "olx-withdraw-history",
+        JSON.stringify([item, ...prev].slice(0, 20))
+      );
+      router.push(
+        `/withdraw/result?amount=${item.amount}&wallet=${encodeURIComponent("USDT")}&arrival=${item.arrival}`
+      );
+    });
   }
 
   return (

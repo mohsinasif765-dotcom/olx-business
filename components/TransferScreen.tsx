@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
-import { getWallets, moveFunds } from "@/lib/wallets";
+import { loadWallets, moveFunds } from "@/lib/wallets";
 import { getCurrentAccount } from "@/lib/session";
 
 export function TransferScreen() {
@@ -17,7 +17,7 @@ export function TransferScreen() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setWallets(getWallets());
+    void loadWallets().then(setWallets);
   }, []);
 
   function swap() {
@@ -27,7 +27,7 @@ export function TransferScreen() {
     setMessage("");
   }
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
     setMessage("");
@@ -45,7 +45,7 @@ export function TransferScreen() {
     }
 
     const value = Number(amount);
-    const result = moveFunds(from, to, value);
+    const result = await moveFunds(from, to, value);
     if (!result.ok) {
       if (result.error === "same") setError(t.sameWallet);
       else if (result.error === "insufficient") setError(t.insufficient);
@@ -53,7 +53,7 @@ export function TransferScreen() {
       return;
     }
 
-    setWallets(getWallets());
+    setWallets(await loadWallets());
     setAmount("");
     setPassword("");
     setMessage(t.transferDone);
