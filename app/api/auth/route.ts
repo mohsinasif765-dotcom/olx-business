@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { displayName } from "@/lib/member-name";
-import { readSite } from "@/lib/server/site";
 import { newUserHandle } from "@/lib/server/handle";
+import { readSite } from "@/lib/server/site";
+import { zuvoAdmin } from "@/lib/zuvo";
 
 function accountKey(account: string) {
   return account.trim().toLowerCase().replace(/\s+/g, "");

@@ -104,7 +104,7 @@ export async function replaceKeyed(table: string, pk: string, rows: Record<strin
   const { data: existing, error: readError } = await client.from(table).select(pk);
   if (readError) throw readError;
   const keep = new Set(rows.map((row) => String(row[pk])));
-  const extra = ((existing || []) as Record<string, string>[])
+  const extra = ((existing || []) as unknown as Record<string, string>[])
     .map((row) => String(row[pk]))
     .filter((id) => id && !keep.has(id));
   if (extra.length) {
