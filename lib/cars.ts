@@ -85,6 +85,15 @@ export const CAR_PLANS: CarPlan[] = [
   },
 ];
 
+export function isPlanLocked(plans: CarPlan[], planId: string, ownedIds: Set<string>) {
+  const target = plans.find((plan) => plan.id === planId);
+  if (!target) return true;
+  const chain = plans.filter((plan) => plan.kind === target.kind);
+  const index = chain.findIndex((plan) => plan.id === planId);
+  if (index <= 0) return false;
+  return !ownedIds.has(chain[index - 1].id);
+}
+
 /** Used by recharge flow (`?plan=`). */
 export const VIP_PLANS = CAR_PLANS.map((plan) => ({
   id: plan.id,

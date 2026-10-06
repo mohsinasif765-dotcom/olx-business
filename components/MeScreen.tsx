@@ -10,6 +10,7 @@ import { clearSession, getSessionAccount, maskAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 import { displayName } from "@/lib/member-name";
 import { TELEGRAM_HELP } from "@/lib/links";
+import { promptInstall } from "@/lib/pwa-install";
 
 type MeFlags = { rechargeOn: boolean; withdrawOn: boolean; transferOn: boolean };
 
@@ -56,6 +57,10 @@ export function MeScreen() {
     window.setTimeout(() => router.push("/"), 280);
   }
 
+  async function installApp() {
+    await promptInstall();
+  }
+
   return (
     <div className="star-field">
       <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
@@ -64,8 +69,7 @@ export function MeScreen() {
             <BrandLogo size={36} />
             <span className="truncate text-[16px] font-semibold text-white">{siteName}</span>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <InstallAppButton />
+          <div className="flex shrink-0 items-center gap-3">
             <LanguageSwitch globe />
             <Link href="/" className="me-login-ico" aria-label={t.login}>
               <HeaderLoginIcon />
@@ -129,6 +133,13 @@ export function MeScreen() {
         </section>
 
         <section className="me-menu anim-up delay-3 mb-5 overflow-hidden">
+          <button type="button" className="me-row w-full text-left" onClick={() => void installApp()}>
+            <span className="me-row-icon">
+              <InstallRowIcon />
+            </span>
+            <span className="flex-1">{t.appDownload}</span>
+            <InstallAppButton />
+          </button>
           <Menu href="/faq" icon={<FaqRowIcon />} label={t.faq} />
           <Menu href="/me/password" icon={<DotsIcon />} label={t.loginPassword} />
           <Menu href="/me/security" icon={<ShieldIcon />} label={t.securityPassword} />
@@ -181,6 +192,20 @@ function Menu({
       <span className="flex-1">{label}</span>
       <span className="text-[20px] font-light text-white/35">›</span>
     </Link>
+  );
+}
+
+function InstallRowIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 4v11m0 0-4-4m4 4 4-4M5 18h14"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

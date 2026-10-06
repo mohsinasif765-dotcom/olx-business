@@ -1,3 +1,5 @@
+import { isPlanLocked } from "@/lib/cars";
+import { listLivePlans } from "@/lib/server/car-catalog";
 import { clearSnapshotCache, readSnapshotPayload, rememberSnapshot } from "@/lib/server/snapshot";
 import { zuvoAdmin } from "@/lib/zuvo";
 
@@ -70,6 +72,16 @@ export async function buyPackage(input: { account: string; planId: string }) {
     .maybeSingle();
   if (planError) throw planError;
   if (!plan || plan.enabled === false) return { ok: false as const, error: "missing" as const };
+
+  const livePlans = await listLivePlans();
+  const owned = new Set(
+    (Array.isArray(snap.holdings) ? snap.holdings : [])
+      .filter((row) => row.account === account)
+      .map((row) => row.planId)
+  );
+  if (isPlanLocked(livePlans, String(plan.id), owned)) {
+    return { ok: false as const, error: "locked" as const };
+  }
 
   const amount = parseInvestMin(String(plan.invest));
   if (amount <= 0) return { ok: false as const, error: "missing" as const };

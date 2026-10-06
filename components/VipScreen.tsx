@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { type CarKind } from "@/lib/cars";
-import { buyCarPackage } from "@/lib/invest";
+import { isPlanLocked, type CarKind } from "@/lib/cars";
+import { buyCarPackage, loadGarage } from "@/lib/invest";
 import { getSessionAccount } from "@/lib/session";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
@@ -20,14 +20,25 @@ export function VipScreen() {
   const [tab, setTab] = useState<CarKind>("new");
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const plans = useMemo(
     () => allPlans.filter((p) => p.kind === tab && settings.packagesOn),
     [allPlans, tab, settings.packagesOn]
   );
 
+  useEffect(() => {
+    void loadGarage().then((data) => {
+      setOwnedIds(new Set(data.holdings.map((row) => row.planId)));
+    });
+  }, []);
+
   async function investNow(planId: string) {
     if (!getSessionAccount()) {
       router.push("/");
+      return;
+    }
+    if (isPlanLocked(allPlans, planId, ownedIds)) {
+      setNote(t.packageLocked);
       return;
     }
     setNote("");
@@ -45,6 +56,7 @@ export function VipScreen() {
     }
     if (result.error === "paused") setNote("Car packages are paused in admin settings.");
     else if (result.error === "frozen") setNote("This account cannot invest right now.");
+    else if (result.error === "locked") setNote(t.packageLocked);
     else if (result.error === "login") router.push("/");
     else setNote("Could not invest. Try again.");
   }
@@ -97,7 +109,9 @@ export function VipScreen() {
           ) : plans.length === 0 ? (
             <p className="px-1 text-[13px] text-white/50">No packages in this tab yet.</p>
           ) : (
-            plans.map((plan) => (
+            plans.map((plan) => {
+              const locked = isPlanLocked(allPlans, plan.id, ownedIds);
+              return (
             <article key={plan.id} className="car-card">
               <div className="car-photo">
                 <img
@@ -117,19 +131,36 @@ export function VipScreen() {
                 <Row label={t.planTerm} value={plan.term} />
                 <button
                   type="button"
-                  className="car-invest"
+                  className={`car-invest ${locked ? "is-locked" : ""}`}
                   disabled={busy === plan.id}
                   onClick={() => void investNow(plan.id)}
                 >
+                  {locked ? <LockIcon /> : null}
                   {busy === plan.id ? "Investing…" : t.investCta}
                 </button>
               </div>
             </article>
-            ))
+              );
+            })
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7 11V8a5 5 0 0 1 10 0v3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <rect x="5" y="11" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 14.5v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   );
 }
 

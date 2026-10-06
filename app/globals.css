@@ -601,10 +601,12 @@ button:active,
 
 .car-invest {
   display: flex;
+  width: 100%;
   margin-top: 14px;
   height: 48px;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   border-radius: 999px;
   font-size: 15px;
   font-weight: 700;
@@ -613,6 +615,13 @@ button:active,
   color: #fff;
   background: linear-gradient(90deg, #5b4dff 0%, #8a4dff 50%, #c44dff 100%);
   box-shadow: 0 8px 18px rgba(90, 70, 255, 0.35);
+}
+
+.car-invest.is-locked {
+  color: rgba(255, 255, 255, 0.78);
+  background: linear-gradient(90deg, #3d4678 0%, #4a4f7a 100%);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 .pay-card {
