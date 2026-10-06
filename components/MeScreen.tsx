@@ -5,20 +5,48 @@ import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { clearSession, getCurrentAccount, maskAccount } from "@/lib/session";
+import { clearSession, getSessionAccount, maskAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
+import { displayName } from "@/lib/member-name";
 import { TELEGRAM_HELP } from "@/lib/links";
+
+type MeFlags = { rechargeOn: boolean; withdrawOn: boolean; transferOn: boolean };
 
 export function MeScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const [account, setAccount] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [vip, setVip] = useState("Member");
+  const [siteName, setSiteName] = useState("OLX Business");
+  const [telegram, setTelegram] = useState(TELEGRAM_HELP);
+  const [flags, setFlags] = useState<MeFlags>({ rechargeOn: true, withdrawOn: true, transferOn: true });
   const [showAccount, setShowAccount] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    const session = getCurrentAccount();
-    setAccount(session?.account ?? null);
+    const session = getSessionAccount();
+    setAccount(session);
+    const qs = session ? `?account=${encodeURIComponent(session)}` : "";
+    void fetch(`/api/me${qs}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: {
+        account?: string;
+        name?: string;
+        vip?: string;
+        siteName?: string;
+        telegram?: string;
+        flags?: MeFlags;
+      } | null) => {
+        if (!data) return;
+        if (data.account) setAccount(data.account);
+        if (data.name) setName(data.name);
+        setVip(data.vip && data.vip !== "—" ? data.vip : "Member");
+        if (data.siteName) setSiteName(data.siteName);
+        if (data.telegram) setTelegram(data.telegram);
+        if (data.flags) setFlags(data.flags);
+      })
+      .catch(() => {});
   }, []);
 
   function logout() {
@@ -33,7 +61,7 @@ export function MeScreen() {
         <header className="anim-up mb-4 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <BrandLogo size={36} />
-            <span className="truncate text-[16px] font-semibold text-white">OLX Business</span>
+            <span className="truncate text-[16px] font-semibold text-white">{siteName}</span>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <LanguageSwitch globe />
@@ -48,9 +76,14 @@ export function MeScreen() {
             <div className="me-avatar">
               <UserIcon />
             </div>
-            <p className="min-w-0 flex-1 truncate text-[14px] font-medium tracking-wide">
-              {showAccount ? account : maskAccount(account)}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-semibold tracking-wide">
+                {name || displayName("", account)}
+              </p>
+              <p className="mt-0.5 min-w-0 truncate text-[12px] text-white/55">
+                {showAccount ? account : maskAccount(account)}
+              </p>
+            </div>
             <button
               type="button"
               className="me-eye"
@@ -59,7 +92,7 @@ export function MeScreen() {
             >
               {showAccount ? <EyeOffIcon /> : <EyeIcon />}
             </button>
-            <span className="me-vip">{t.vipTag}</span>
+            <span className="me-vip">{vip}</span>
           </section>
         ) : (
           <Link
@@ -79,11 +112,11 @@ export function MeScreen() {
 
         <section className="me-tools anim-up delay-2 mb-3 px-3 py-5">
           <div className="grid grid-cols-3 gap-y-6">
-            <Tool href="/wallet/select" label={t.rechargeShort} icon={<RechargeIcon />} />
-            <Tool href="/withdraw" label={t.withdraw} icon={<WithdrawIcon />} />
+            {flags.rechargeOn ? <Tool href="/wallet/select" label={t.rechargeShort} icon={<RechargeIcon />} /> : null}
+            {flags.withdrawOn ? <Tool href="/withdraw" label={t.withdraw} icon={<WithdrawIcon />} /> : null}
             <Tool href="/records" label={t.financialRecords} icon={<RecordsIcon />} />
-            <Tool href="/transfer" label={t.transfer} icon={<TransferIcon />} />
-            <a href={TELEGRAM_HELP} target="_blank" rel="noreferrer" className="me-tool">
+            {flags.transferOn ? <Tool href="/transfer" label={t.transfer} icon={<TransferIcon />} /> : null}
+            <a href={telegram} target="_blank" rel="noreferrer" className="me-tool">
               <span className="me-tool-icon me-tele">
                 <TelegramIcon />
               </span>

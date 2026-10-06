@@ -3,15 +3,45 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
-import type { WithdrawRecord } from "@/components/WithdrawScreen";
+import { getSessionAccount } from "@/lib/session";
+
+type WithdrawRecord = {
+  id: string;
+  wallet: string;
+  address: string;
+  amount: string;
+  fee: string;
+  arrival: string;
+  status: string;
+  at: string;
+};
 
 export default function Page() {
   const { t } = useLanguage();
   const [items, setItems] = useState<WithdrawRecord[]>([]);
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("olx-withdraw-history");
-    setItems(raw ? (JSON.parse(raw) as WithdrawRecord[]) : []);
+    const account = getSessionAccount();
+    if (!account) return;
+    void fetch(`/api/records?account=${encodeURIComponent(account)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { rows?: { id: string; kind: string; title: string; amount: string; status: string; at: string }[] } | null) => {
+        setItems(
+          (data?.rows || [])
+            .filter((row) => row.kind === "withdraw")
+            .map((row) => ({
+              id: row.id,
+              wallet: row.title,
+              address: "",
+              amount: row.amount.replace(/^-/, ""),
+              fee: "",
+              arrival: row.amount.replace(/^-/, ""),
+              status: row.status,
+              at: row.at,
+            }))
+        );
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -39,15 +69,6 @@ export default function Page() {
                   <p className="text-[12px] text-[#ffd27a]">{item.status}</p>
                 </div>
                 <p className="mt-2 text-[18px] font-semibold">{item.amount} USDT</p>
-                <p className="mt-1 break-all text-[11px] text-white/45">{item.address}</p>
-                <div className="mt-2 flex justify-between text-[11px] text-white/50">
-                  <span>
-                    {t.handlingFee}: {item.fee}
-                  </span>
-                  <span>
-                    {t.actualArrival}: {item.arrival}
-                  </span>
-                </div>
                 <p className="mt-2 text-[11px] text-white/40">{item.at}</p>
               </article>
             ))}

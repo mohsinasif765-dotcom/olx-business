@@ -1,18 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { fetchContent } from "@/lib/fetch-content";
 import { useLanguage } from "@/lib/i18n";
 
 export function AboutScreen() {
   const { t } = useLanguage();
+  const [siteName, setSiteName] = useState("OLX Business");
+  const [body, setBody] = useState("");
+
+  useEffect(() => {
+    void fetchContent()
+      .then((data: { siteName?: string; cms?: { slug: string; title: string; body: string }[] } | null) => {
+        if (data?.siteName) setSiteName(data.siteName);
+        const page = data?.cms?.find((p) => p.slug === "about");
+        if (page?.body) setBody(page.body);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="star-field">
       <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
         <header className="mb-5 flex items-center justify-between">
           <Link
-            href="/home"
+            href="/me"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg"
           >
             ‹
@@ -30,14 +44,14 @@ export function AboutScreen() {
         <div className="about-version mb-5">{t.currentVersion}</div>
 
         <section className="mb-5 text-[13px] leading-6 text-white/80">
-          <p className="mb-2 font-semibold text-white">{t.welcomeAbout}</p>
-          <p>{t.aboutBody}</p>
+          <p className="mb-2 font-semibold text-white">{siteName}</p>
+          <p>{body || t.aboutBody}</p>
         </section>
 
         <section className="mb-5 space-y-2 text-[13px] leading-6">
           <p>
             <span className="text-white/50">{t.companyNameLabel}: </span>
-            <span className="font-medium">{t.companyName}</span>
+            <span className="font-medium">{siteName}</span>
           </p>
           <p>
             <span className="text-white/50">{t.companyAddressLabel}: </span>
@@ -59,7 +73,7 @@ export function AboutScreen() {
             </div>
           </div>
 
-          <h2 className="text-center text-[15px] font-semibold text-[#12224a]">{t.companyName}</h2>
+          <h2 className="text-center text-[15px] font-semibold text-[#12224a]">{siteName}</h2>
           <p className="mt-2 text-center text-[11px] leading-5 text-[#3d4d6e]">{t.companyAddress}</p>
 
           <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-[#3d4d6e]">

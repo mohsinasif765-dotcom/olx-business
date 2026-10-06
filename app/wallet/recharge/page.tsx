@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { fetchContent } from "@/lib/fetch-content";
 import { getCoin } from "@/lib/coins";
-import { CoinIcon } from "@/components/CoinIcon";
+import { CurrencyFlag } from "@/components/CurrencyFlag";
 import { useLanguage } from "@/lib/i18n";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { creditWallet } from "@/lib/wallets";
+import { postLedger } from "@/lib/ledger";
+import { getSessionAccount } from "@/lib/session";
 
 type HistoryItem = {
   id: string;
@@ -29,7 +32,52 @@ function RechargeDetail() {
   const { t } = useLanguage();
   const params = useSearchParams();
   const { vipPlans } = useCarPlans();
-  const coin = useMemo(() => getCoin(params.get("coin")), [params]);
+  const coinId = params.get("coin") || "usdt";
+  const fallback = getCoin(coinId);
+  const [asset, setAsset] = useState<{
+    id: string;
+    name: string;
+    network: string;
+    symbol: string;
+    color: string;
+    letter: string;
+    min: string;
+    address: string;
+  }>({
+    id: fallback.id,
+    name: fallback.name,
+    network: fallback.network,
+    symbol: fallback.symbol,
+    color: fallback.color,
+    letter: fallback.letter,
+    min: fallback.min,
+    address: fallback.address,
+  });
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    void fetchContent()
+      .then((data: {
+        flags?: { rechargeOn?: boolean };
+        coins?: { id: string; name: string; network: string; min: string; address: string }[];
+      } | null) => {
+        if (data?.flags?.rechargeOn === false) setPaused(true);
+        const row = data?.coins?.find((c) => c.id === coinId) || data?.coins?.[0];
+        if (row) {
+          setAsset({
+            id: row.id,
+            name: row.name,
+            network: row.network,
+            symbol: row.name || row.id.toUpperCase(),
+            color: "#26a17b",
+            letter: "₮",
+            min: row.min,
+            address: row.address,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [coinId]);
   const plan = useMemo(
     () => vipPlans.find((item) => item.id === params.get("plan")) ?? null,
     [params, vipPlans]
@@ -39,20 +87,6 @@ function RechargeDetail() {
   const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState("");
 
-  if (!coin) {
-    return (
-      <div className="star-field">
-        <div className="page-enter mx-auto min-h-screen max-w-[430px] px-4 pt-8 text-white">
-          <p>{t.pageNotFound}</p>
-          <Link href="/wallet/select" className="mt-4 block text-[#9ec6ff]">
-            ← {t.rechargeSelect}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const asset = coin;
   const quick = [asset.min, "50", "100", "500"];
 
   async function copyAddress() {
@@ -86,8 +120,13 @@ function RechargeDetail() {
       JSON.stringify([item, ...prev].slice(0, 20))
     );
     const credited = Number(amount);
-    if (Number.isFinite(credited) && credited > 0 && asset.symbol === "USDT") {
+    if (paused) {
+      setMessage("Funding is paused in admin settings.");
+      return;
+    }
+    if (Number.isFinite(credited) && credited > 0) {
       void creditWallet("invest", credited);
+      void postLedger({ kind: "recharges", amount: credited, network: asset.network, txHash: hash, status: "paid" });
     }
     setMessage(`${asset.name} ${amount} ${t.rechargeDone}`);
   }
@@ -110,7 +149,7 @@ function RechargeDetail() {
 
         <div className="deposit-hero mb-4 text-center">
           <div className="mx-auto mb-3 w-fit drop-shadow-lg">
-            <CoinIcon symbol={asset.symbol} size={56} />
+            <CurrencyFlag id={asset.id} name={asset.name} network={asset.network} size={56} />
           </div>
           <h2 className="text-[20px] font-semibold">{asset.name}</h2>
           <span className="mt-2 inline-flex rounded-full bg-[#6d5bff]/25 px-3 py-1 text-[11px] tracking-wide text-[#c9b8ff]">

@@ -3,24 +3,43 @@
 import Link from "next/link";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { getSessionAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
-
-function makeCode() {
-  return String(100000 + Math.floor(Math.random() * 900000));
-}
 
 export function InviteScreen() {
   const { t } = useLanguage();
   const [code, setCode] = useState("------");
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"code" | "link" | "">("");
+  const [teamCount, setTeamCount] = useState(0);
+  const [rebate, setRebate] = useState(0);
+  const [rates, setRates] = useState({ l1: 15, l2: 3, l3: 1 });
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("olx-invite-code");
-    const next = saved || makeCode();
-    if (!saved) window.localStorage.setItem("olx-invite-code", next);
-    setCode(next);
     setOrigin(window.location.origin);
+    const account = getSessionAccount();
+    if (!account) {
+      const saved = window.localStorage.getItem("olx-invite-code") || "------";
+      setCode(saved);
+      return;
+    }
+    void fetch(`/api/team?account=${encodeURIComponent(account)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: {
+        invite?: string;
+        totals?: { team: number; commission: number };
+        rates?: { l1: number; l2: number; l3: number };
+      } | null) => {
+        if (!data) return;
+        if (data.invite) {
+          setCode(data.invite);
+          window.localStorage.setItem("olx-invite-code", data.invite);
+        }
+        setTeamCount(data.totals?.team || 0);
+        setRebate(data.totals?.commission || 0);
+        if (data.rates) setRates(data.rates);
+      })
+      .catch(() => {});
   }, []);
 
   const link = origin ? `${origin}/register?invite=${code}` : `/register?invite=${code}`;
@@ -54,11 +73,11 @@ export function InviteScreen() {
         <div className="mb-3 grid grid-cols-2 gap-3">
           <div className="deposit-card px-3 py-4 text-center">
             <p className="text-[12px] text-white/50">{t.myTeam}</p>
-            <p className="mt-1 text-[22px] font-semibold">0</p>
+            <p className="mt-1 text-[22px] font-semibold">{teamCount}</p>
           </div>
           <div className="deposit-card px-3 py-4 text-center">
             <p className="text-[12px] text-white/50">{t.rebateEarned}</p>
-            <p className="mt-1 text-[22px] font-semibold text-[#7ee0ff]">0.00</p>
+            <p className="mt-1 text-[22px] font-semibold text-[#7ee0ff]">{rebate.toFixed(2)}</p>
           </div>
         </div>
 
@@ -128,13 +147,15 @@ export function InviteScreen() {
             {t.inviteInstructions}
           </h2>
           <p className="text-[12px] leading-6 text-white/75">{t.inviteIntro}</p>
-          <p className="mt-2 text-[12px] leading-6 text-white/75">{t.inviteL1}</p>
-          <p className="text-[12px] leading-6 text-white/75">{t.inviteL2}</p>
-          <p className="text-[12px] leading-6 text-white/75">{t.inviteL3}</p>
+          <p className="mt-2 text-[12px] leading-6 text-white/75">Level 1 (direct invitation): up to {rates.l1}%</p>
+          <p className="text-[12px] leading-6 text-white/75">Level 2 (friends of your friends): {rates.l2}%</p>
+          <p className="text-[12px] leading-6 text-white/75">Level 3 (third level): {rates.l3}%</p>
           <p className="mt-2 text-[12px] leading-6 text-white/75">{t.inviteNote}</p>
         </section>
 
-        <p className="mt-4 text-center text-[12px] text-white/40">{t.noInvites}</p>
+        <p className="mt-4 text-center text-[12px] text-white/40">
+          {teamCount ? `${teamCount} invited members in your team.` : t.noInvites}
+        </p>
       </div>
     </div>
   );

@@ -2,24 +2,61 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { getActivity } from "@/lib/activities";
+import { getSessionAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
+import { loadWallets } from "@/lib/wallets";
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addBalance(amount: number) {
-  const current = Number(window.localStorage.getItem("olx-usdt-balance") || "0");
-  const next = (Number.isFinite(current) ? current : 0) + amount;
-  window.localStorage.setItem("olx-usdt-balance", String(next));
-}
+type EventRow = {
+  id: string;
+  status: "live" | "ended";
+  badge: string;
+  title: string;
+  desc: string;
+  time: string;
+  theme: string;
+  rewards?: string[];
+  prizes?: string[];
+  href?: string;
+  cta?: string;
+  rules: string[];
+};
 
 export function ActivityDetail({ id }: { id: string }) {
   const { t } = useLanguage();
   const router = useRouter();
-  const event = useMemo(() => getActivity(id), [id]);
+  const fallback = getActivity(id);
+  const [event, setEvent] = useState<EventRow | null>(
+    fallback
+      ? {
+          id: fallback.id,
+          status: fallback.status,
+          badge: fallback.badge,
+          title: fallback.title,
+          desc: fallback.desc,
+          time: fallback.time,
+          theme: fallback.theme,
+          rewards: "rewards" in fallback ? [...fallback.rewards] : undefined,
+          prizes: "prizes" in fallback ? [...fallback.prizes] : undefined,
+          href: "href" in fallback ? fallback.href : undefined,
+          cta: "cta" in fallback ? fallback.cta : undefined,
+          rules: [...fallback.rules],
+        }
+      : null
+  );
+
+  useEffect(() => {
+    const account = getSessionAccount() || "";
+    const qs = account ? `?account=${encodeURIComponent(account)}` : "";
+    void fetch(`/api/activity${qs}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { activities?: EventRow[] } | null) => {
+        const row = data?.activities?.find((item) => item.id === id);
+        if (row) setEvent(row);
+      })
+      .catch(() => {});
+  }, [id]);
 
   if (!event) {
     return (
@@ -62,15 +99,10 @@ export function ActivityDetail({ id }: { id: string }) {
           </p>
         </div>
 
-        {event.id === "checkin" && "rewards" in event ? (
-          <CheckInPanel rewards={[...event.rewards]} disabled={ended} />
-        ) : null}
+        {event.rewards ? <CheckInPanel rewards={event.rewards} disabled={ended} /> : null}
+        {event.prizes ? <LuckyPanel prizes={event.prizes} disabled={ended} /> : null}
 
-        {event.id === "lucky" && "prizes" in event ? (
-          <LuckyPanel prizes={[...event.prizes]} disabled={ended} />
-        ) : null}
-
-        {"href" in event && event.href ? (
+        {event.href ? (
           <Link href={ended ? "/activity" : event.href} className="wd-confirm mb-4">
             {ended
               ? t.endedTag
@@ -104,33 +136,43 @@ function CheckInPanel({ rewards, disabled }: { rewards: string[]; disabled: bool
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("olx-checkin");
-    const data = raw ? (JSON.parse(raw) as { date: string; streak: number }) : null;
-    if (!data) return;
-    const today = todayKey();
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yKey = yesterday.toISOString().slice(0, 10);
-    if (data.date === today) {
-      setStreak(data.streak);
-      setDone(true);
-      return;
-    }
-    setStreak(data.date === yKey && data.streak < 7 ? data.streak : 0);
+    const account = getSessionAccount();
+    if (!account) return;
+    void fetch(`/api/activity?account=${encodeURIComponent(account)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { checkin?: { date: string; streak: number } } | null) => {
+        const today = new Date().toISOString().slice(0, 10);
+        if (data?.checkin?.date === today) {
+          setStreak(data.checkin.streak);
+          setDone(true);
+        } else if (data?.checkin) {
+          setStreak(data.checkin.streak);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   function claim() {
     if (disabled || done) return;
-    const day = streak + 1;
-    const prize = Number(rewards[day - 1] || "0.10");
-    addBalance(prize);
-    window.localStorage.setItem(
-      "olx-checkin",
-      JSON.stringify({ date: todayKey(), streak: day })
-    );
-    setStreak(day);
-    setDone(true);
-    setMessage(`${t.claimedToday} +${prize.toFixed(2)} USDT`);
+    const account = getSessionAccount();
+    if (!account) return;
+    void fetch("/api/activity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account, action: "checkin" }),
+    })
+      .then((res) => res.json())
+      .then((data: { ok?: boolean; prize?: string; streak?: number; error?: string }) => {
+        if (!data.ok) {
+          setMessage(data.error === "used" ? t.checkedIn : "Could not check in.");
+          return;
+        }
+        setStreak(data.streak || 0);
+        setDone(true);
+        setMessage(`${t.claimedToday} +${Number(data.prize).toFixed(2)} USDT`);
+        void loadWallets();
+      })
+      .catch(() => {});
   }
 
   return (
@@ -175,29 +217,44 @@ function LuckyPanel({ prizes, disabled }: { prizes: string[]; disabled: boolean 
   const [prize, setPrize] = useState("");
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("olx-lucky");
-    const data = raw ? (JSON.parse(raw) as { date: string; prize: string }) : null;
-    if (data?.date === todayKey()) {
-      setUsed(true);
-      setPrize(data.prize);
-    }
+    const account = getSessionAccount();
+    if (!account) return;
+    void fetch(`/api/activity?account=${encodeURIComponent(account)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { lucky?: { date: string; prize: string } } | null) => {
+        const today = new Date().toISOString().slice(0, 10);
+        if (data?.lucky?.date === today) {
+          setUsed(true);
+          setPrize(data.lucky.prize);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   function spin() {
     if (disabled || used || spinning) return;
-    const index = Math.floor(Math.random() * prizes.length);
-    const slice = 360 / prizes.length;
-    const extra = 360 * 5 + (360 - index * slice) - slice / 2;
+    const account = getSessionAccount();
+    if (!account) return;
     setSpinning(true);
-    setAngle((current) => current + extra);
-    window.setTimeout(() => {
-      const won = prizes[index];
-      addBalance(Number(won));
-      window.localStorage.setItem("olx-lucky", JSON.stringify({ date: todayKey(), prize: won }));
-      setPrize(won);
-      setUsed(true);
-      setSpinning(false);
-    }, 2800);
+    void fetch("/api/activity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account, action: "lucky" }),
+    })
+      .then((res) => res.json())
+      .then((data: { ok?: boolean; prize?: string; error?: string }) => {
+        const won = data.ok ? data.prize || "0.00" : "0.00";
+        const index = Math.max(0, prizes.indexOf(won));
+        const slice = 360 / prizes.length;
+        setAngle((current) => current + 360 * 5 + (360 - index * slice) - slice / 2);
+        window.setTimeout(() => {
+          setPrize(won);
+          setUsed(true);
+          setSpinning(false);
+          void loadWallets();
+        }, 2800);
+      })
+      .catch(() => setSpinning(false));
   }
 
   return (

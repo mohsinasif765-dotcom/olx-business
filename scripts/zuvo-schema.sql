@@ -21,8 +21,11 @@ create table if not exists public.members (
   status text not null default 'active',
   joined text not null default '',
   login_password text not null default '',
-  security_password text not null default ''
+  security_password text not null default '',
+  name text not null default ''
 );
+
+alter table public.members add column if not exists name text not null default '';
 
 create table if not exists public.ops_snapshot (
   id int primary key default 1 check (id = 1),
@@ -44,4 +47,20 @@ using (enabled = true);
 grant select on public.car_packages to anon, authenticated;
 grant all on public.car_packages to service_role;
 grant all on public.members to service_role;
-grant all on public.ops_snapshot to service_role;
+create table if not exists public.car_holdings (
+  id text primary key,
+  account text not null,
+  plan_id text not null,
+  name text not null,
+  kind text not null,
+  invest text not null,
+  invest_amount numeric not null default 0,
+  returns text not null,
+  term text not null,
+  image text not null,
+  status text not null default 'active',
+  started_at timestamptz not null default now()
+);
+
+alter table public.car_holdings enable row level security;
+grant all on public.car_holdings to service_role;

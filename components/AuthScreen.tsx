@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { fetchContent } from "@/lib/fetch-content";
 import { signIn, getSessionAccount } from "@/lib/session";
 
 type Mode = "login" | "register";
@@ -29,7 +30,11 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   const [showSecurity, setShowSecurity] = useState(false);
   const [showConfirmSecurity, setShowConfirmSecurity] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [siteName, setSiteName] = useState("OLX Business");
+  const [loginOn, setLoginOn] = useState(true);
+  const [registerOn, setRegisterOn] = useState(true);
   const router = useRouter();
   const inviteDefault = useSearchParams().get("invite") || "";
 
@@ -37,6 +42,13 @@ export function AuthScreen({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     if (getSessionAccount()) router.replace("/home");
+    void fetchContent()
+      .then((data: { siteName?: string; flags?: { loginOn?: boolean; registerOn?: boolean } } | null) => {
+        if (data?.siteName) setSiteName(data.siteName);
+        if (data?.flags?.loginOn === false) setLoginOn(false);
+        if (data?.flags?.registerOn === false) setRegisterOn(false);
+      })
+      .catch(() => {});
   }, [router]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -52,6 +64,14 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       setMessage("Please fill in all required fields.");
       return;
     }
+    if (isLogin && !loginOn) {
+      setMessage("Login is paused in admin settings.");
+      return;
+    }
+    if (!isLogin && !registerOn) {
+      setMessage("Register is paused in admin settings.");
+      return;
+    }
 
     if (!isLogin) {
       if (password !== String(data.get("confirmPassword") || "")) {
@@ -65,21 +85,41 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         setMessage("Security passwords do not match.");
         return;
       }
+      if (!String(data.get("securityPassword") || "").trim()) {
+        setMessage("Please fill in all required fields.");
+        return;
+      }
+      if (!String(data.get("fullName") || "").trim()) {
+        setMessage("Please enter your name.");
+        return;
+      }
     }
 
+    setBusy(true);
     const result = await signIn({
       account,
       loginPassword: password,
       securityPassword: String(data.get("securityPassword") || ""),
       isRegister: !isLogin,
+      invite: String(data.get("invite") || ""),
+      name: String(data.get("fullName") || ""),
     });
+    setBusy(false);
     if (!result.ok) {
       setMessage(
         result.error === "exists"
           ? "This account is already registered."
           : result.error === "badpass"
             ? "Email or password is incorrect."
-            : "Please fill in all required fields."
+            : result.error === "paused"
+              ? isLogin
+                ? "Login is paused in admin settings."
+                : "Register is paused in admin settings."
+              : result.error === "frozen"
+                ? "This account is frozen."
+                : result.error === "missing"
+                  ? "No account found. Please register first."
+                  : "Could not reach the database. Try again."
       );
       return;
     }
@@ -99,7 +139,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           </div>
 
           <h1 className="mb-8 text-center text-[32px] font-semibold text-white">
-            OLX Business
+            {siteName}
           </h1>
 
           <div className="mb-6 grid w-full grid-cols-2 gap-4">
@@ -201,6 +241,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
 
             {!isLogin && (
               <>
+                <input name="fullName" autoComplete="name" placeholder="Full name" className="auth-input" />
                 <PasswordInput
                   name="confirmPassword"
                   placeholder="Confirm password"
@@ -231,13 +272,14 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             <button
               type="submit"
               className="auth-btn mt-3 h-14 w-full rounded-full text-[16px] font-semibold tracking-[0.2em]"
+              disabled={busy}
             >
-              {isLogin ? "LOGIN" : "REGISTER"}
+              {busy ? "PLEASE WAIT" : isLogin ? "LOGIN" : "REGISTER"}
             </button>
           </form>
 
           {message ? (
-            <p className="mt-3 text-center text-sm text-[#c9d4ff]">{message}</p>
+            <p className="mt-3 text-center text-sm font-medium text-[#ff5c5c]">{message}</p>
           ) : null}
 
           <p className="mt-5 text-center text-[14px] text-white/70">

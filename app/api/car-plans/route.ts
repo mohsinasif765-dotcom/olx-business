@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { CAR_PLANS, type CarKind, type CarPlan } from "@/lib/cars";
+import { type CarKind, type CarPlan } from "@/lib/cars";
 import { adminCors } from "@/lib/server/admin-cors";
 import { listLivePlans, replacePlans } from "@/lib/server/car-catalog";
+import { readSnapshotPayload } from "@/lib/server/snapshot";
 
 const OPS_KEY = process.env.OLX_OPS_KEY || "olx-ops-local";
 
-function json(request: Request, data: unknown, status = 200) {
-  return NextResponse.json(data, { status, headers: adminCors(request, "GET, PUT, POST, OPTIONS") });
+function json(request: Request, data: unknown, status = 200, cache = "no-store") {
+  return NextResponse.json(data, {
+    status,
+    headers: { ...adminCors(request, "GET, PUT, POST, OPTIONS"), "Cache-Control": cache },
+  });
 }
 
 function isImageRef(value: string) {
@@ -55,10 +59,19 @@ export async function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    return json(request, { plans: await listLivePlans() });
+    const [plans, payload] = await Promise.all([listLivePlans(), readSnapshotPayload()]);
+    const settings = (payload.settings || {}) as Record<string, unknown>;
+    return json(request, {
+      plans,
+      settings: {
+        siteName: String(settings.siteName || "OLX Business"),
+        packagesOn: settings.packagesOn !== false,
+        maintenance: String(settings.maintenance || ""),
+      },
+    }, 200, "public, max-age=10, stale-while-revalidate=30");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zuvo read failed";
-    return json(request, { error: message, plans: CAR_PLANS }, 200);
+    return json(request, { error: message, plans: [], settings: { siteName: "OLX Business", packagesOn: true, maintenance: "" } }, 200);
   }
 }
 

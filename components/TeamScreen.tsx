@@ -4,14 +4,27 @@ import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { getInviteCode, inviteLink } from "@/lib/invite";
+import { inviteLink } from "@/lib/invite";
+import { getSessionAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 
-const LEVELS = [
-  { id: "1", rate: "15%" },
-  { id: "2", rate: "3%" },
-  { id: "3", rate: "1%" },
-];
+type TeamPayload = {
+  invite: string;
+  rates: { l1: number; l2: number; l3: number };
+  totals: { team: number; commission: number; recharge: number; withdraw: number };
+  levels: Record<string, { people: number; valid: number; rate: number }>;
+};
+
+const EMPTY: TeamPayload = {
+  invite: "------",
+  rates: { l1: 15, l2: 3, l3: 1 },
+  totals: { team: 0, commission: 0, recharge: 0, withdraw: 0 },
+  levels: {
+    "1": { people: 0, valid: 0, rate: 15 },
+    "2": { people: 0, valid: 0, rate: 3 },
+    "3": { people: 0, valid: 0, rate: 1 },
+  },
+};
 
 export function TeamScreen() {
   const { t } = useLanguage();
@@ -19,12 +32,49 @@ export function TeamScreen() {
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"code" | "link" | "">("");
   const [date, setDate] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [team, setTeam] = useState<TeamPayload>(EMPTY);
+  const [account, setAccount] = useState<string | null>(null);
+
+  function load(queryDate = date) {
+    const session = getSessionAccount();
+    setAccount(session);
+    if (!session) {
+      setLoading(false);
+      setTeam(EMPTY);
+      return;
+    }
+    setLoading(true);
+    const qs = new URLSearchParams({ account: session });
+    if (queryDate) qs.set("date", queryDate);
+    void fetch(`/api/team?${qs}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: TeamPayload | null) => {
+        if (data?.invite) {
+          setTeam({
+            ...EMPTY,
+            ...data,
+            rates: { ...EMPTY.rates, ...data.rates },
+            totals: { ...EMPTY.totals, ...data.totals },
+            levels: {
+              "1": { ...EMPTY.levels["1"], ...data.levels?.["1"] },
+              "2": { ...EMPTY.levels["2"], ...data.levels?.["2"] },
+              "3": { ...EMPTY.levels["3"], ...data.levels?.["3"] },
+            },
+          });
+          setCode(data.invite);
+          window.localStorage.setItem("olx-invite-code", data.invite);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }
 
   useEffect(() => {
-    setCode(getInviteCode());
     setOrigin(window.location.origin);
     setDate(new Date().toISOString().slice(0, 10));
+    load("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const link = inviteLink(origin || "https://olx-business.app", code);
@@ -42,8 +92,7 @@ export function TeamScreen() {
   }
 
   function queryDate() {
-    setLoading(true);
-    window.setTimeout(() => setLoading(false), 700);
+    load(date);
   }
 
   return (
@@ -133,22 +182,32 @@ export function TeamScreen() {
           </div>
         ) : (
           <div className="mb-3 grid grid-cols-2 gap-3">
-            <Stat label={t.totalTeam} value="0" />
-            <Stat label={t.totalCommission} value="$0" />
-            <Stat label={t.totalTeamRecharge} value="$0" />
-            <Stat label={t.totalTeamWithdraw} value="$0" />
+            <Stat label={t.totalTeam} value={String(team.totals.team)} />
+            <Stat label={t.totalCommission} value={`$${team.totals.commission.toFixed(2)}`} />
+            <Stat label={t.totalTeamRecharge} value={`$${team.totals.recharge.toFixed(2)}`} />
+            <Stat label={t.totalTeamWithdraw} value={`$${team.totals.withdraw.toFixed(2)}`} />
           </div>
         )}
 
+        {!account ? (
+          <p className="mb-3 px-1 text-center text-[13px] text-white/50">
+            Sign in to load your team from the database.{" "}
+            <Link href="/" className="text-[#9ec6ff]">
+              Login
+            </Link>
+          </p>
+        ) : null}
+
         <div className="grid grid-cols-3 gap-2">
-          {LEVELS.map((level) => (
-            <article key={level.id} className="team-lev">
-              <p className="text-[13px] font-bold tracking-wide">LEV {level.id}</p>
+          {(["1", "2", "3"] as const).map((id) => (
+            <article key={id} className="team-lev">
+              <p className="text-[13px] font-bold tracking-wide">LEV {id}</p>
+              <p className="mt-1 text-[11px] text-[#7ee0ff]">{team.levels[id].rate}%</p>
               <p className="mt-3 text-[11px] text-white/50">{t.peopleCount}</p>
-              <p className="text-[18px] font-semibold">0</p>
+              <p className="text-[18px] font-semibold">{team.levels[id].people}</p>
               <p className="mt-2 text-[11px] text-white/50">{t.validCount}</p>
-              <p className="text-[18px] font-semibold">0</p>
-              <Link href={`/team/level/${level.id}`} className="team-details">
+              <p className="text-[18px] font-semibold">{team.levels[id].valid}</p>
+              <Link href={`/team/level/${id}`} className="team-details">
                 {t.details}
               </Link>
             </article>

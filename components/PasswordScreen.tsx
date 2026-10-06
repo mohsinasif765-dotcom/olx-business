@@ -40,16 +40,30 @@ export function PasswordScreen({ kind }: { kind: "login" | "security" }) {
       setError(t.passwordMismatch);
       return;
     }
-    const expected = kind === "login" ? session.loginPassword : session.securityPassword;
-    if (expected && expected !== current) {
-      setError(t.wrongPassword);
-      return;
-    }
-    updatePasswords(kind === "login" ? { loginPassword: next } : { securityPassword: next });
-    setCurrent("");
-    setNext("");
-    setConfirm("");
-    setDone(t.passwordUpdated);
+    void fetch("/api/me", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        account: session.account,
+        action: "password",
+        kind,
+        current,
+        next,
+      }),
+    })
+      .then(async (res) => {
+        const data = (await res.json()) as { ok?: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          setError(data.error === "badpass" ? t.wrongPassword : t.minPassword);
+          return;
+        }
+        updatePasswords(kind === "login" ? { loginPassword: next } : { securityPassword: next });
+        setCurrent("");
+        setNext("");
+        setConfirm("");
+        setDone(t.passwordUpdated);
+      })
+      .catch(() => setError(t.minPassword));
   }
 
   const title = kind === "login" ? t.loginPassword : t.securityPassword;

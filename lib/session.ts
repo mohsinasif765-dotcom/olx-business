@@ -49,34 +49,75 @@ export async function signIn(input: {
   loginPassword: string;
   securityPassword?: string;
   isRegister: boolean;
-}): Promise<{ ok: true } | { ok: false; error: "exists" | "badpass" | "required" }> {
+  invite?: string;
+  name?: string;
+}): Promise<
+  | { ok: true; account: string; invite: string }
+  | { ok: false; error: "exists" | "badpass" | "required" | "paused" | "frozen" | "missing" }
+> {
   const account = input.account.trim();
   if (!account || !input.loginPassword.trim()) {
     return { ok: false, error: "required" };
   }
+  if (input.isRegister && !String(input.securityPassword || "").trim()) {
+    return { ok: false, error: "required" };
+  }
 
   const key = accountKey(account);
-  const all = readAccounts();
   try {
     const res = await fetch("/api/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        account,
+        loginPassword: input.loginPassword,
+        securityPassword: input.securityPassword || "",
+        isRegister: input.isRegister,
+        action: input.isRegister ? "register" : "login",
+        invite: input.invite || "",
+        name: input.name || "",
+      }),
     });
-    const data = (await res.json()) as { ok?: boolean; error?: string; account?: string };
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      account?: string;
+      invite?: string;
+    };
     if (res.status === 409 || data.error === "exists") return { ok: false, error: "exists" };
     if (res.status === 401 || data.error === "badpass") return { ok: false, error: "badpass" };
+    if (data.error === "paused") return { ok: false, error: "paused" };
+    if (data.error === "frozen") return { ok: false, error: "frozen" };
+    if (data.error === "missing") return { ok: false, error: "missing" };
     if (!res.ok || data.error === "required") return { ok: false, error: "required" };
+    const saved = data.account || account;
+    const all = readAccounts();
     all[key] = {
-      account: data.account || account,
+      account: saved,
       loginPassword: input.loginPassword,
       securityPassword: input.securityPassword || input.loginPassword,
     };
     writeAccounts(all);
-    setSessionAccount(all[key].account);
-    return { ok: true };
+    setSessionAccount(saved);
+    if (data.invite) window.localStorage.setItem("olx-invite-code", data.invite);
+    return { ok: true, account: saved, invite: data.invite || "" };
   } catch {
     return { ok: false, error: "required" };
+  }
+}
+
+export async function verifySecurityPassword(password: string) {
+  const account = getSessionAccount();
+  if (!account) return false;
+  try {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account, action: "verify", securityPassword: password }),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 

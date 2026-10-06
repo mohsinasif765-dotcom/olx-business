@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { getCurrentAccount } from "@/lib/session";
+import { getSessionAccount, verifySecurityPassword } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 import { debitWallet, loadWallets } from "@/lib/wallets";
+import { fetchContent } from "@/lib/fetch-content";
+import { postLedger } from "@/lib/ledger";
+import { CurrencySelect } from "@/components/CurrencySelect";
 
 export type WithdrawRecord = {
   id: string;
@@ -28,11 +31,35 @@ export function WithdrawScreen() {
   const [balance, setBalance] = useState(0);
   const [error, setError] = useState("");
 
-  const fee = 1;
-  const minPayout = 1;
+  const [fee, setFee] = useState(1);
+  const [minPayout, setMinPayout] = useState(1);
+  const [paused, setPaused] = useState(false);
+  const [coins, setCoins] = useState<{ id: string; name: string; network?: string }[]>([
+    { id: "usdt", name: "USDT", network: "Tether" },
+    { id: "pkr", name: "PKR", network: "Pakistan" },
+  ]);
+  const [coin, setCoin] = useState("USDT");
 
   useEffect(() => {
     void loadWallets().then((w) => setBalance(w.invest));
+    const account = getSessionAccount();
+    const qs = account ? `?account=${encodeURIComponent(account)}` : "";
+    void fetch(`/api/me${qs}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { finance?: { minWithdraw?: number; payoutFee?: number }; flags?: { withdrawOn?: boolean } } | null) => {
+        if (data?.finance?.minWithdraw) setMinPayout(data.finance.minWithdraw);
+        if (data?.finance?.payoutFee != null) setFee(data.finance.payoutFee);
+        if (data?.flags?.withdrawOn === false) setPaused(true);
+      })
+      .catch(() => {});
+    void fetchContent()
+      .then((data: { coins?: { id: string; name: string; network?: string }[] } | null) => {
+        if (data?.coins?.length) {
+          setCoins(data.coins);
+          setCoin(data.coins[0].name);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const parsedAmount = Number(amount);
@@ -41,7 +68,7 @@ export function WithdrawScreen() {
     return Math.max(0, parsedAmount - fee);
   }, [parsedAmount, fee]);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
@@ -62,8 +89,13 @@ export function WithdrawScreen() {
       return;
     }
 
-    const session = getCurrentAccount();
-    if (session?.securityPassword && session.securityPassword !== password) {
+    if (paused) {
+      setError("Withdraw is paused in admin settings.");
+      return;
+    }
+
+    const okPass = await verifySecurityPassword(password);
+    if (!okPass) {
       setError(t.wrongPassword);
       return;
     }
@@ -75,7 +107,7 @@ export function WithdrawScreen() {
       }
       const item: WithdrawRecord = {
         id: String(Date.now()),
-        wallet: "USDT",
+        wallet: coin,
         address: address.trim(),
         amount: parsedAmount.toFixed(6),
         fee: fee.toFixed(6),
@@ -90,8 +122,15 @@ export function WithdrawScreen() {
         "olx-withdraw-history",
         JSON.stringify([item, ...prev].slice(0, 20))
       );
+      void postLedger({
+        kind: "withdraws",
+        amount: parsedAmount,
+        wallet: coin,
+        address: address.trim(),
+        status: "pending",
+      });
       router.push(
-        `/withdraw/result?amount=${item.amount}&wallet=${encodeURIComponent("USDT")}&arrival=${item.arrival}`
+        `/withdraw/result?amount=${item.amount}&wallet=${encodeURIComponent(coin)}&arrival=${item.arrival}`
       );
     });
   }
@@ -122,7 +161,7 @@ export function WithdrawScreen() {
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="pay-card">
             <p className="text-[11px] tracking-wide text-white/45 uppercase">{t.payoutMethod}</p>
-            <p className="mt-2 text-[17px] font-semibold">USDT</p>
+            <CurrencySelect coins={coins} value={coin} onChange={setCoin} />
             <p className="mt-1 text-[13px] text-white/50">{t.payoutHint}</p>
           </div>
 
@@ -159,10 +198,10 @@ export function WithdrawScreen() {
 
           <div className="flex justify-between text-[12px] text-white/50">
             <span>
-              {t.minWithdraw}: {minPayout.toFixed(2)} USDT
+              {t.minWithdraw}: {minPayout.toFixed(2)} {coin}
             </span>
             <span>
-              {t.handlingFee}: {fee.toFixed(0)} USDT
+              {t.handlingFee}: {fee.toFixed(0)} {coin}
             </span>
           </div>
 
@@ -187,7 +226,7 @@ export function WithdrawScreen() {
           </label>
 
           <p className="text-right text-[12px] text-white/55">
-            {t.actualArrival}: {arrival.toFixed(6)} USDT
+            {t.actualArrival}: {arrival.toFixed(6)} {coin}
           </p>
 
           {error ? (

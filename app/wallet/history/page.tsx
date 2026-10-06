@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
+import { getSessionAccount } from "@/lib/session";
 
 type HistoryItem = {
   id: string;
-  coin: string;
+  title?: string;
+  coin?: string;
   amount: string;
   status: string;
   at: string;
@@ -17,8 +19,15 @@ export default function Page() {
   const [items, setItems] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("olx-recharge-history");
-    setItems(raw ? (JSON.parse(raw) as HistoryItem[]) : []);
+    const account = getSessionAccount();
+    if (!account) return;
+    void fetch(`/api/records?account=${encodeURIComponent(account)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { rows?: { id: string; kind: string; title: string; amount: string; status: string; at: string }[] } | null) => {
+        const rows = (data?.rows || []).filter((row) => row.kind === "recharge");
+        setItems(rows.map((row) => ({ id: row.id, coin: row.title, amount: row.amount, status: row.status, at: row.at })));
+      })
+      .catch(() => {});
   }, []);
 
   return (

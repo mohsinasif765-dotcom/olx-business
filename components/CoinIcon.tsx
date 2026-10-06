@@ -43,7 +43,16 @@ export function CoinIcon({ symbol, size = 36 }: { symbol: string; size?: number 
           />
         </svg>
       );
-    case "ETH":
+    case "BTC":
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="16" cy="16" r="16" fill="#f7931a" />
+          <path
+            fill="#fff"
+            d="M21.2 14.2c.3-2-1.2-3.1-3.3-3.8l.7-2.7-1.6-.4-.7 2.6c-.4-.1-.9-.2-1.3-.3l.7-2.6-1.6-.4-.7 2.7c-.4-.1-.7-.2-1-.3l.2-.1-2.3-.6-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8 1l-.8 3.2c0 .1.1.1.1.1l-.1-.1-1.1 4.4c-.1.2-.3.5-.7.4 0 0-1.2-.3-1.2-.3l-.8 1.8 2.2.5c.4.1.8.2 1.2.3l-.7 2.8 1.6.4.7-2.7c.4.1.9.2 1.3.3l-.7 2.7 1.6.4.7-2.8c2.9.5 5 .3 6-2.3.8-2.1 0-3.3-1.6-4 .1 0 2.9-.7 3.3-3zm-4.8 6.7c-.6 2.3-4.4 1.1-5.6.8l1-4c1.2.3 5.2 1 4.6 3.2zm.6-6.7c-.5 2.1-3.7 1-4.8.8l.9-3.6c1 .3 4.5.8 3.9 2.8z"
+          />
+        </svg>
+      );
       return (
         <svg {...common} aria-hidden="true">
           <circle cx="16" cy="16" r="16" fill="#627eea" />
@@ -74,10 +83,40 @@ export function CoinIcon({ symbol, size = 36 }: { symbol: string; size?: number 
           />
         </svg>
       );
+            case "PKR":
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="16" cy="16" r="16" fill="#01411c" />
+          <text x="16" y="21" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="700">
+            Rs
+          </text>
+        </svg>
+      );
+    case "USD":
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="16" cy="16" r="16" fill="#2e7d32" />
+          <text x="16" y="21" textAnchor="middle" fill="#fff" fontSize="13" fontWeight="700">
+            $
+          </text>
+        </svg>
+      );
+    case "EUR":
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="16" cy="16" r="16" fill="#003399" />
+          <text x="16" y="21" textAnchor="middle" fill="#fff" fontSize="14" fontWeight="700">
+            €
+          </text>
+        </svg>
+      );
     default:
       return (
         <svg {...common} aria-hidden="true">
           <circle cx="16" cy="16" r="16" fill="#4f5dff" />
+          <text x="16" y="21" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="700">
+            {symbol.slice(0, 3)}
+          </text>
         </svg>
       );
   }

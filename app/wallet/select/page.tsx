@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { BackHeader } from "@/components/BackHeader";
+import { CurrencyFlag } from "@/components/CurrencyFlag";
+import { fetchContent } from "@/lib/fetch-content";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
+
+type Coin = { id: string; name: string; network: string; min: string; address: string };
 
 export default function Page() {
   return (
@@ -21,7 +25,17 @@ function RechargeSelect() {
   const { vipPlans } = useCarPlans();
   const planId = params.get("plan");
   const plan = vipPlans.find((item) => item.id === planId) ?? null;
-  const href = planId ? `/wallet/recharge?coin=usdt&plan=${planId}` : "/wallet/recharge?coin=usdt";
+  const [coins, setCoins] = useState<Coin[]>([]);
+  const [hint, setHint] = useState("");
+
+  useEffect(() => {
+    void fetchContent()
+      .then((data: { flags?: { rechargeOn?: boolean }; coins?: Coin[] } | null) => {
+        if (data?.flags?.rechargeOn === false) setHint("Funding is paused in admin settings.");
+        setCoins(Array.isArray(data?.coins) ? data.coins : []);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="star-field">
@@ -46,14 +60,36 @@ function RechargeSelect() {
           <p className="mb-4 px-1 text-[13px] leading-5 text-white/55">{t.fundIntro}</p>
         )}
 
-        <article className="pay-card">
-          <p className="text-[11px] tracking-wide text-white/45 uppercase">{t.payMethod}</p>
-          <h2 className="mt-2 text-[18px] font-semibold">USDT</h2>
-          <p className="mt-2 text-[13px] leading-5 text-white/55">{t.payUsdtHint}</p>
-          <Link href={href} className="car-invest mt-4">
-            {t.continuePay}
-          </Link>
-        </article>
+        {hint ? <p className="mb-3 px-1 text-[13px] text-white/50">{hint}</p> : null}
+
+        <p className="mb-3 px-1 text-[12px] tracking-wide text-white/45 uppercase">{t.payMethod}</p>
+        <div className="space-y-3">
+          {coins.length === 0 ? (
+            <p className="px-1 text-[13px] text-white/50">No currencies enabled yet.</p>
+          ) : (
+            coins.map((coin) => {
+              const href = planId
+                ? `/wallet/recharge?coin=${coin.id}&plan=${planId}`
+                : `/wallet/recharge?coin=${coin.id}`;
+              return (
+                <article key={coin.id} className="pay-card">
+                  <div className="flex items-center gap-3">
+                    <CurrencyFlag id={coin.id} name={coin.name} network={coin.network} size={40} />
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-[17px] font-semibold">{coin.name}</h2>
+                      <p className="text-[12px] text-white/50">
+                        {coin.network} · min {coin.min}
+                      </p>
+                    </div>
+                  </div>
+                  <Link href={href} className="car-invest mt-4">
+                    {t.continuePay}
+                  </Link>
+                </article>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

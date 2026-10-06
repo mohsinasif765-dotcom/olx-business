@@ -1,18 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { FAQ_ARTICLES, type FaqTab } from "@/lib/faq";
+import { useEffect, useMemo, useState } from "react";
+import { type FaqTab } from "@/lib/faq";
 import { useLanguage } from "@/lib/i18n";
+import { fetchContent } from "@/lib/fetch-content";
 import { TELEGRAM_HELP } from "@/lib/links";
+
+type FaqItem = { id: string; tab: string; title: string; body: string };
 
 export function FaqScreen() {
   const { t } = useLanguage();
   const [tab, setTab] = useState<FaqTab>("cars");
-  const items = useMemo(
-    () => FAQ_ARTICLES.filter((item) => item.tab === tab),
-    [tab]
-  );
+  const [items, setItems] = useState<FaqItem[]>([]);
+  const [telegram, setTelegram] = useState(TELEGRAM_HELP);
+
+  useEffect(() => {
+    void fetchContent()
+      .then((data: { faqs?: FaqItem[]; telegram?: string } | null) => {
+        if (Array.isArray(data?.faqs)) setItems(data.faqs);
+        if (data?.telegram) setTelegram(data.telegram);
+      })
+      .catch(() => {});
+  }, []);
+
+  const visible = useMemo(() => items.filter((item) => item.tab === tab), [items, tab]);
 
   const tabs: { id: FaqTab; label: string }[] = [
     { id: "cars", label: t.faqMining },
@@ -25,7 +37,7 @@ export function FaqScreen() {
       <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
         <header className="mb-4 flex items-center justify-between">
           <Link
-            href="/home"
+            href="/me"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg"
           >
             ‹
@@ -48,22 +60,20 @@ export function FaqScreen() {
         </div>
 
         <div className="space-y-3">
-          {items.map((item) => (
-            <Link key={item.id} href={`/faq/${item.id}`} className="faq-row">
-              <span className="min-w-0 flex-1 truncate pr-3">{item.title}</span>
-              <span className="shrink-0 text-white/45">›</span>
-            </Link>
-          ))}
+          {visible.length === 0 ? (
+            <p className="px-1 text-[13px] text-white/50">No articles in this tab yet.</p>
+          ) : (
+            visible.map((item) => (
+              <Link key={item.id} href={`/faq/${item.id}`} className="faq-row">
+                <span className="min-w-0 flex-1 truncate pr-3">{item.title}</span>
+                <span className="shrink-0 text-white/45">›</span>
+              </Link>
+            ))
+          )}
         </div>
       </div>
 
-      <a
-        href={TELEGRAM_HELP}
-        target="_blank"
-        rel="noreferrer"
-        className="faq-fab"
-        aria-label={t.telegram}
-      >
+      <a href={telegram} target="_blank" rel="noreferrer" className="faq-fab" aria-label={t.telegram}>
         <TelegramMark />
       </a>
     </div>

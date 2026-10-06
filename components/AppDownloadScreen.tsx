@@ -3,15 +3,25 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { fetchContent } from "@/lib/fetch-content";
 import { useLanguage } from "@/lib/i18n";
 
 export function AppDownloadScreen() {
   const { t } = useLanguage();
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
+  const [siteName, setSiteName] = useState("OLX Business");
+  const [blurb, setBlurb] = useState("");
 
   useEffect(() => {
     setOrigin(window.location.origin);
+    void fetchContent()
+      .then((data: { siteName?: string; cms?: { slug: string; body: string }[] } | null) => {
+        if (data?.siteName) setSiteName(data.siteName);
+        const page = data?.cms?.find((p) => p.slug === "app");
+        if (page?.body) setBlurb(page.body);
+      })
+      .catch(() => {});
   }, []);
 
   const appUrl = origin || "https://olx-business.app";
@@ -42,10 +52,10 @@ export function AppDownloadScreen() {
 
         <div className="mb-4 flex flex-col items-center">
           <BrandLogo size={88} />
-          <h2 className="mt-3 text-[22px] font-semibold">OLX Business</h2>
+          <h2 className="mt-3 text-[22px] font-semibold">{siteName}</h2>
           <p className="mt-1 text-[12px] text-white/50">V1.0</p>
           <p className="mt-2 max-w-[280px] text-center text-[13px] leading-5 text-white/70">
-            {t.appTagline}
+            {blurb || t.appTagline}
           </p>
         </div>
 

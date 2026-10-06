@@ -4,7 +4,9 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
 import { loadWallets, moveFunds } from "@/lib/wallets";
-import { getCurrentAccount } from "@/lib/session";
+import { verifySecurityPassword } from "@/lib/session";
+import { fetchContent } from "@/lib/fetch-content";
+import { postLedger } from "@/lib/ledger";
 
 export function TransferScreen() {
   const { t } = useLanguage();
@@ -18,6 +20,11 @@ export function TransferScreen() {
 
   useEffect(() => {
     void loadWallets().then(setWallets);
+    void fetchContent()
+      .then((data: { flags?: { transferOn?: boolean } } | null) => {
+        if (data?.flags?.transferOn === false) setError("Transfer is paused in admin settings.");
+      })
+      .catch(() => {});
   }, []);
 
   function swap() {
@@ -32,16 +39,14 @@ export function TransferScreen() {
     setError("");
     setMessage("");
 
-    const session = getCurrentAccount();
-    if (session?.securityPassword) {
-      if (!password.trim()) {
-        setError(t.securityRequired);
-        return;
-      }
-      if (session.securityPassword !== password) {
-        setError(t.wrongPassword);
-        return;
-      }
+    if (!password.trim()) {
+      setError(t.securityRequired);
+      return;
+    }
+    const okPass = await verifySecurityPassword(password);
+    if (!okPass) {
+      setError(t.wrongPassword);
+      return;
     }
 
     const value = Number(amount);
@@ -57,6 +62,7 @@ export function TransferScreen() {
     setAmount("");
     setPassword("");
     setMessage(t.transferDone);
+    void postLedger({ kind: "transfers", amount: value, from, to });
   }
 
   const fromBalance = from === "invest" ? wallets.invest : wallets.brokerage;

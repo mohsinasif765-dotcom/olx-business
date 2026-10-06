@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
+import { getSessionAccount } from "@/lib/session";
 import { getTransferHistory } from "@/lib/wallets";
 
 type Tab = "all" | "recharge" | "withdraw" | "transfer";
@@ -22,6 +23,7 @@ export function RecordsScreen() {
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
+    const account = getSessionAccount();
     const rechargeRaw = window.localStorage.getItem("olx-recharge-history");
     const withdrawRaw = window.localStorage.getItem("olx-withdraw-history");
     const recharge = rechargeRaw ? (JSON.parse(rechargeRaw) as { id: string; coin: string; amount: string; status: string; at: string }[]) : [];
@@ -29,8 +31,7 @@ export function RecordsScreen() {
       ? (JSON.parse(withdrawRaw) as { id: string; wallet: string; amount: string; status: string; at: string }[])
       : [];
     const transfers = getTransferHistory();
-
-    const merged: Row[] = [
+    const localRows: Row[] = [
       ...recharge.map((item) => ({
         id: `r-${item.id}`,
         kind: "recharge" as const,
@@ -58,8 +59,24 @@ export function RecordsScreen() {
         at: item.at,
       })),
     ];
-    merged.sort((a, b) => (a.at < b.at ? 1 : -1));
-    setRows(merged);
+    if (!account) {
+      localRows.sort((a, b) => (a.at < b.at ? 1 : -1));
+      setRows(localRows);
+      return;
+    }
+    void fetch(`/api/records?account=${encodeURIComponent(account)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { rows?: Row[] } | null) => {
+        const dbRows = Array.isArray(data?.rows) ? data.rows : [];
+        const seen = new Set(dbRows.map((row) => row.id));
+        const merged = [...dbRows, ...localRows.filter((row) => !seen.has(row.id))];
+        merged.sort((a, b) => (a.at < b.at ? 1 : -1));
+        setRows(merged);
+      })
+      .catch(() => {
+        localRows.sort((a, b) => (a.at < b.at ? 1 : -1));
+        setRows(localRows);
+      });
   }, [t.investWallet, t.brokerageWallet]);
 
   const visible = useMemo(

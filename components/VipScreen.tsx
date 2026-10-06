@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { type CarKind } from "@/lib/cars";
+import { buyCarPackage } from "@/lib/invest";
+import { getSessionAccount } from "@/lib/session";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
 
@@ -12,9 +15,39 @@ export { VIP_PLANS } from "@/lib/cars";
 
 export function VipScreen() {
   const { t } = useLanguage();
-  const { plans: allPlans } = useCarPlans();
+  const router = useRouter();
+  const { plans: allPlans, settings, loaded } = useCarPlans();
   const [tab, setTab] = useState<CarKind>("new");
-  const plans = useMemo(() => allPlans.filter((p) => p.kind === tab), [allPlans, tab]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const plans = useMemo(
+    () => allPlans.filter((p) => p.kind === tab && settings.packagesOn),
+    [allPlans, tab, settings.packagesOn]
+  );
+
+  async function investNow(planId: string) {
+    if (!getSessionAccount()) {
+      router.push("/");
+      return;
+    }
+    setNote("");
+    setBusy(planId);
+    const result = await buyCarPackage(planId);
+    setBusy(null);
+    if (result.ok) {
+      router.push("/mining-pool");
+      return;
+    }
+    if (result.error === "insufficient") {
+      setNote(`Invest wallet needs at least $${(result.need || 0).toFixed(0)}. Fund USDT first.`);
+      router.push(`/wallet/select?plan=${planId}`);
+      return;
+    }
+    if (result.error === "paused") setNote("Car packages are paused in admin settings.");
+    else if (result.error === "frozen") setNote("This account cannot invest right now.");
+    else if (result.error === "login") router.push("/");
+    else setNote("Could not invest. Try again.");
+  }
 
   return (
     <div className="star-field">
@@ -22,13 +55,22 @@ export function VipScreen() {
         <header className="relative mb-4 flex items-center justify-between">
           <Link href="/home" className="flex items-center gap-2">
             <BrandLogo size={42} />
-            <span className="text-[17px] font-semibold">OLX Business</span>
+            <span className="text-[17px] font-semibold">{settings.siteName}</span>
           </Link>
           <LanguageSwitch globe />
         </header>
 
         <h1 className="mb-1 px-1 text-[22px] font-semibold">{t.carsTitle}</h1>
         <p className="mb-4 px-1 text-[13px] leading-5 text-white/55">{t.carIntro}</p>
+        {settings.maintenance ? (
+          <p className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-200">
+            {settings.maintenance}
+          </p>
+        ) : null}
+
+        {note ? (
+          <p className="mb-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[13px] text-white/70">{note}</p>
+        ) : null}
 
         <div className="car-tabs mb-4">
           <button
@@ -48,7 +90,11 @@ export function VipScreen() {
         </div>
 
         <div className="space-y-4">
-          {plans.length === 0 ? (
+          {!loaded ? (
+            <p className="px-1 text-[13px] text-white/50">Loading packages…</p>
+          ) : !settings.packagesOn ? (
+            <p className="px-1 text-[13px] text-white/50">Car packages are paused in admin settings.</p>
+          ) : plans.length === 0 ? (
             <p className="px-1 text-[13px] text-white/50">No packages in this tab yet.</p>
           ) : (
             plans.map((plan) => (
@@ -69,9 +115,14 @@ export function VipScreen() {
                 <Row label={t.investAmount} value={plan.invest} />
                 <Row label={t.expectedReturn} value={plan.returns} accent />
                 <Row label={t.planTerm} value={plan.term} />
-                <Link href={`/wallet/select?plan=${plan.id}`} className="car-invest">
-                  {t.investCta}
-                </Link>
+                <button
+                  type="button"
+                  className="car-invest"
+                  disabled={busy === plan.id}
+                  onClick={() => void investNow(plan.id)}
+                >
+                  {busy === plan.id ? "Investing…" : t.investCta}
+                </button>
               </div>
             </article>
             ))

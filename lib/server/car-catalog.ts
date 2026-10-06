@@ -12,6 +12,10 @@ type PackageRow = {
   enabled: boolean;
 };
 
+let plansHold: { at: number; plans: CarPlan[] } | null = null;
+let seedStarted = false;
+const PLANS_TTL = 15000;
+
 function toPlan(row: PackageRow): CarPlan {
   return {
     id: row.id,
@@ -25,6 +29,7 @@ function toPlan(row: PackageRow): CarPlan {
 }
 
 export async function listLivePlans(): Promise<CarPlan[]> {
+  if (plansHold && Date.now() - plansHold.at < PLANS_TTL) return plansHold.plans;
   const { data, error } = await zuvoAdmin()
     .from("car_packages")
     .select("id,name,kind,invest,returns,term,image,enabled")
@@ -33,10 +38,18 @@ export async function listLivePlans(): Promise<CarPlan[]> {
   if (error) throw error;
   const rows = (data || []) as PackageRow[];
   if (!rows.length) {
-    await seedPackages();
+    if (!seedStarted) {
+      seedStarted = true;
+      void seedPackages().then(() => {
+        plansHold = null;
+      });
+    }
+    plansHold = { at: Date.now(), plans: CAR_PLANS };
     return CAR_PLANS;
   }
-  return rows.map(toPlan);
+  const plans = rows.map(toPlan);
+  plansHold = { at: Date.now(), plans };
+  return plans;
 }
 
 export async function replacePlans(plans: CarPlan[]) {
@@ -59,6 +72,7 @@ export async function replacePlans(plans: CarPlan[]) {
     }))
   );
   if (error) throw error;
+  plansHold = { at: Date.now(), plans };
 }
 
 async function seedPackages() {

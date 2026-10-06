@@ -1,17 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ACTIVITIES } from "@/lib/activities";
+import { useEffect, useMemo, useState } from "react";
+import { fetchContent } from "@/lib/fetch-content";
 import { useLanguage } from "@/lib/i18n";
+
+type Act = {
+  id: string;
+  status: "live" | "ended";
+  badge: string;
+  title: string;
+  desc: string;
+  time: string;
+  theme: string;
+};
 
 export function ActivityScreen() {
   const { t } = useLanguage();
   const [tab, setTab] = useState<"live" | "ended">("live");
-  const list = useMemo(
-    () => ACTIVITIES.filter((item) => item.status === tab),
-    [tab]
-  );
+  const [siteName, setSiteName] = useState("OLX Business");
+  const [rows, setRows] = useState<Act[]>([]);
+
+  useEffect(() => {
+    void fetch("/api/activity", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { activities?: Act[] } | null) => {
+        if (Array.isArray(data?.activities) && data.activities.length) setRows(data.activities);
+      })
+      .catch(() => {});
+    void fetchContent()
+      .then((data: { siteName?: string } | null) => {
+        if (data?.siteName) setSiteName(data.siteName);
+      })
+      .catch(() => {});
+  }, []);
+
+  const list = useMemo(() => rows.filter((item) => item.status === tab), [rows, tab]);
 
   return (
     <div className="star-field">
@@ -28,11 +52,9 @@ export function ActivityScreen() {
         </header>
 
         <div className="act-hero mb-4">
-          <p className="text-[12px] tracking-[0.16em] text-white/55">OLX BUSINESS</p>
+          <p className="text-[12px] tracking-[0.16em] text-white/55">{siteName.toUpperCase()}</p>
           <h2 className="mt-1 text-[22px] font-semibold">Member offers</h2>
-          <p className="mt-2 text-[13px] text-white/70">
-            Check-in, first fund bonus, and invite rewards.
-          </p>
+          <p className="mt-2 text-[13px] text-white/70">Check-in, first fund bonus, and invite rewards.</p>
         </div>
 
         <div className="mb-4 grid grid-cols-2 rounded-full bg-black/25 p-1">
