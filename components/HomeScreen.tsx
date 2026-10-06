@@ -8,19 +8,21 @@ import { useLanguage } from "@/lib/i18n";
 import { inviteLink } from "@/lib/invite";
 import { getSessionAccount } from "@/lib/session";
 import { loadWallets } from "@/lib/wallets";
+import { SAMPLE_WITHDRAW_LOGS } from "@/lib/withdraw-logs";
 
 const LOG_ITEM_HEIGHT = 58;
+const LOG_BUFFER = 3;
 
 export function HomeScreen() {
   const { t } = useLanguage();
+  const [logs, setLogs] = useState<{ user: string; amount: string }[]>(SAMPLE_WITHDRAW_LOGS);
   const [logIndex, setLogIndex] = useState(0);
-  const [logInstant, setLogInstant] = useState(false);
+  const [logSnap, setLogSnap] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [wallets, setWallets] = useState({ invest: 0, brokerage: 0 });
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
   const [siteName, setSiteName] = useState("OLX Business");
   const [stats, setStats] = useState({ users: 0, revenue: 0 });
-  const [logs, setLogs] = useState<{ user: string; amount: string }[]>([]);
 
   useEffect(() => {
     const account = getSessionAccount();
@@ -42,7 +44,7 @@ export function HomeScreen() {
         }
         if (data.siteName) setSiteName(data.siteName);
         setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
-        setLogs(Array.isArray(data.logs) ? data.logs : []);
+        setLogs(Array.isArray(data.logs) && data.logs.length ? data.logs : SAMPLE_WITHDRAW_LOGS);
         if (data.wallets) {
           setWallets({ invest: data.wallets.invest, brokerage: data.wallets.brokerage });
         } else {
@@ -57,29 +59,33 @@ export function HomeScreen() {
       });
   }, []);
 
-  const logCount = logs.length || 1;
+  const ticker = logs.length ? logs : SAMPLE_WITHDRAW_LOGS;
+  const logCount = ticker.length;
+  const reel = [...ticker, ...ticker.slice(0, LOG_BUFFER)];
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    setLogIndex(0);
+    setLogSnap(false);
+    const tick = window.setInterval(() => {
       setLogIndex((current) => (current >= logCount ? current : current + 1));
-    }, 2200);
-    return () => clearInterval(timer);
+    }, 2400);
+    return () => window.clearInterval(tick);
   }, [logCount]);
 
   useEffect(() => {
     if (logIndex !== logCount) return;
-    const snap = window.setTimeout(() => {
-      setLogInstant(true);
+    const hold = window.setTimeout(() => {
+      setLogSnap(true);
       setLogIndex(0);
-    }, 650);
-    return () => window.clearTimeout(snap);
-  }, [logIndex]);
+    }, 560);
+    return () => window.clearTimeout(hold);
+  }, [logIndex, logCount]);
 
   useEffect(() => {
-    if (!logInstant) return;
-    const unlock = window.setTimeout(() => setLogInstant(false), 40);
+    if (!logSnap) return;
+    const unlock = window.setTimeout(() => setLogSnap(false), 40);
     return () => window.clearTimeout(unlock);
-  }, [logInstant]);
+  }, [logSnap]);
 
   return (
     <div id="app" className="star-field">
@@ -166,16 +172,21 @@ export function HomeScreen() {
           </h2>
           <div className="log-ticker">
             <div
-              className={`log-track ${logInstant ? "log-track-instant" : ""}`}
+              className={`log-track ${logSnap ? "log-track-instant" : ""}`}
               style={{ transform: `translateY(-${logIndex * LOG_ITEM_HEIGHT}px)` }}
             >
-              {(logs.length ? [...logs, ...logs.slice(0, 3)] : [{ user: "—", amount: "0 USDT" }]).map((log, index) => (
-                <div key={`${log.user}-${index}`} className="log-item">
-                  <div className="log-item-card">
-                    {t.withdrawLog.replace("{user}", log.user).replace("{amount}", log.amount)}
+              {reel.map((log, index) => {
+                const slot = index - logIndex;
+                const size =
+                  slot === 2 ? "is-new" : slot === 1 ? "is-mid" : slot === 0 ? "is-top" : "is-away";
+                return (
+                  <div key={`${log.user}-${index}`} className={`log-item ${size}`}>
+                    <div className="log-item-card">
+                      {t.withdrawLog.replace("{user}", log.user).replace("{amount}", log.amount)}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
@@ -267,10 +278,9 @@ function StatCard({
       </span>
       {prefix ? <p className="text-[13px] font-semibold text-white/90">{prefix}</p> : null}
       <p className={`font-semibold leading-tight ${prefix ? "text-[18px]" : "text-[20px]"}`}>
-        {shown.toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        {shown.toLocaleString("en-US", prefix
+          ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+          : { maximumFractionDigits: 0 })}
       </p>
       <p className="mt-1 text-[12px] leading-4 text-white/55">{label}</p>
     </div>

@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchContent } from "@/lib/fetch-content";
 import { useLanguage } from "@/lib/i18n";
+
+type InstallPrompt = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
 
 export function AppDownloadScreen() {
   const { t } = useLanguage();
@@ -12,9 +17,27 @@ export function AppDownloadScreen() {
   const [copied, setCopied] = useState(false);
   const [siteName, setSiteName] = useState("OLX Business");
   const [blurb, setBlurb] = useState("");
+  const [hint, setHint] = useState("");
+  const [installed, setInstalled] = useState(false);
+  const promptRef = useRef<InstallPrompt | null>(null);
 
   useEffect(() => {
     setOrigin(window.location.origin);
+    const nav = window.navigator as Navigator & { standalone?: boolean };
+    if (window.matchMedia("(display-mode: standalone)").matches || nav.standalone) {
+      setInstalled(true);
+    }
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      promptRef.current = event as InstallPrompt;
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      promptRef.current = null;
+      setHint("");
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
     void fetchContent()
       .then((data: { siteName?: string; cms?: { slug: string; body: string }[] } | null) => {
         if (data?.siteName) setSiteName(data.siteName);
@@ -22,9 +45,37 @@ export function AppDownloadScreen() {
         if (page?.body) setBlurb(page.body);
       })
       .catch(() => {});
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
-  const appUrl = origin || "https://olx-business.app";
+  const appUrl = origin ? `${origin}/app-download` : "https://olx-business.app/app-download";
+
+  async function installAndroid() {
+    if (installed) {
+      setHint(t.alreadyInstalled);
+      return;
+    }
+    const pending = promptRef.current;
+    if (pending) {
+      await pending.prompt();
+      const choice = await pending.userChoice;
+      promptRef.current = null;
+      if (choice.outcome === "accepted") setInstalled(true);
+      return;
+    }
+    setHint(t.installAndroidHint);
+  }
+
+  function installIos() {
+    if (installed) {
+      setHint(t.alreadyInstalled);
+      return;
+    }
+    setHint(t.installIosHint);
+  }
 
   async function copyLink() {
     try {
@@ -60,21 +111,27 @@ export function AppDownloadScreen() {
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3">
-          <a href={appUrl} className="store-btn store-android">
+          <button type="button" className="store-btn store-android" onClick={() => void installAndroid()}>
             <AndroidMark />
             <span>
               <span className="block text-[10px] opacity-80">GET IT ON</span>
               {t.downloadAndroid}
             </span>
-          </a>
-          <a href={appUrl} className="store-btn store-ios">
+          </button>
+          <button type="button" className="store-btn store-ios" onClick={installIos}>
             <AppleMark />
             <span>
               <span className="block text-[10px] opacity-80">Download on the</span>
               {t.downloadIos}
             </span>
-          </a>
+          </button>
         </div>
+
+        {hint ? (
+          <p className="mb-4 rounded-xl border border-[#7dffb2]/25 bg-[#0e2458]/70 px-3 py-3 text-center text-[13px] leading-5 text-[#7dffb2]">
+            {hint}
+          </p>
+        ) : null}
 
         <section className="deposit-card mb-4 p-4 text-center">
           <p className="mb-3 text-[12px] text-white/55">{t.scanToInstall}</p>
@@ -88,7 +145,7 @@ export function AppDownloadScreen() {
           </div>
           <p className="mb-3 break-all text-[11px] text-[#9ec6ff]">{appUrl}</p>
           <div className="flex gap-2">
-            <button type="button" className="invite-copy flex-1" onClick={copyLink}>
+            <button type="button" className="invite-copy flex-1" onClick={() => void copyLink()}>
               {copied ? t.copied : t.copy}
             </button>
             <Link href="/home" className="invite-copy flex-1 text-center leading-[28px]">
@@ -144,7 +201,7 @@ function AndroidMark() {
 function AppleMark() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M16.7 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.9-3.5.9s-1.8-.8-3-.8c-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.3 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7 2-.1 2.9-2.3c.7-1.2 1-2.3 1-2.4-.1 0-2.3-.9-2.3-3.5zM14.8 5.6c.6-.8 1.1-1.9.9-3-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z" />
+      <path d="M16.7 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.9-3.5.9s-1.8-.8-3-.8c-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.3 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7 2-.1 2.9-2.3c.7-1.2 1-2.4 1-2.4-.1 0-2.3-.9-2.3-3.5zM14.8 5.6c.6-.8 1.1-1.9.9-3-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z" />
     </svg>
   );
 }

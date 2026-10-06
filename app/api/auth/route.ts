@@ -110,7 +110,7 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (action === "login") {
-    if (!existing) return NextResponse.json({ error: "missing" }, { status: 401 });
+    if (!existing) return NextResponse.json({ error: "missing" }, { status: 404 });
     if (existing.status === "frozen" || existing.status === "banned") {
       return NextResponse.json({ error: "frozen" }, { status: 403 });
     }

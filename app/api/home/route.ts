@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readSnapshotPayload } from "@/lib/server/snapshot";
+import { fillWithdrawLogs } from "@/lib/withdraw-logs";
 import { stripDemoRows } from "@/lib/server/strip-demo";
 import { zuvoAdmin } from "@/lib/zuvo";
 
@@ -52,13 +53,15 @@ export async function GET(request: Request) {
       settings?: { siteName?: string };
       withdraws?: { account: string; amount: number; status: string }[];
     };
-    const logs = stripDemoRows(snap.withdraws || [])
-      .filter((row) => row.status !== "rejected")
-      .slice(0, 12)
-      .map((row) => ({
-        user: mask(row.account),
-        amount: `${money(row.amount)} USDT`,
-      }));
+    const logs = fillWithdrawLogs(
+      stripDemoRows(snap.withdraws || [])
+        .filter((row) => row.status !== "rejected")
+        .slice(0, 12)
+        .map((row) => ({
+          user: mask(row.account),
+          amount: `${money(row.amount)} USDT`,
+        }))
+    );
 
     const wallets = mine.data
       ? {

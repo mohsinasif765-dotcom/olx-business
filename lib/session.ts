@@ -85,7 +85,8 @@ export async function signIn(input: {
       invite?: string;
     };
     if (res.status === 409 || data.error === "exists") return { ok: false, error: "exists" };
-    if (res.status === 401 || data.error === "badpass") return { ok: false, error: "badpass" };
+    if (data.error === "missing" || res.status === 404) return { ok: false, error: "missing" };
+    if (data.error === "badpass" || res.status === 401) return { ok: false, error: "badpass" };
     if (data.error === "paused") return { ok: false, error: "paused" };
     if (data.error === "frozen") return { ok: false, error: "frozen" };
     if (data.error === "missing") return { ok: false, error: "missing" };

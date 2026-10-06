@@ -1,13 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { LanguageProvider } from "@/lib/i18n";
 import { BottomNav } from "@/components/BottomNav";
+import { PwaRegister } from "@/components/PwaRegister";
+import { LanguageProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "OLX Business",
   description: "OLX Business car investment packages, recharge, withdraw, and team.",
+  applicationName: "OLX Business",
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/logo.png",
+    icon: "/icon",
+    apple: "/icon",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "OLX Business",
+    statusBarStyle: "black-translucent",
   },
 };
 
@@ -25,6 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <LanguageProvider>
           {children}
           <BottomNav />
+          <PwaRegister />
         </LanguageProvider>
       </body>
     </html>
