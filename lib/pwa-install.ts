@@ -9,8 +9,8 @@ function win() {
 
 export function getDeferredInstall(): InstallPrompt | null {
   const w = win();
-  const fromWindow = w?.__olxPwa;
-  if (fromWindow && typeof fromWindow.prompt === "function") return fromWindow as InstallPrompt;
+  const fromWindow = w?.__olxPwa as InstallPrompt | null | undefined;
+  if (fromWindow && typeof fromWindow.prompt === "function") return fromWindow;
   return null;
 }
 
