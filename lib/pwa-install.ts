@@ -43,10 +43,10 @@ export function isIosDevice() {
 }
 
 export function isDesktopChromium() {
-  if (typeof navigator === "undefined") return false;
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
   const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-  return !mobile && (/Chrome|Edg|OPR|Brave/i.test(ua) || !!(window as Window & { chrome?: unknown }).chrome);
+  return !mobile && (/Chrome|Edg|OPR|Brave/i.test(ua) || Boolean((window as Window & { chrome?: unknown }).chrome));
 }
 
 export function openInChrome() {

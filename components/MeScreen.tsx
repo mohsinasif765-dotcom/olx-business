@@ -39,12 +39,16 @@ export function MeScreen() {
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [inAppBrowser, setInAppBrowser] = useState(false);
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
+  const [desktopChrome, setDesktopChrome] = useState(false);
+  const [iosDevice, setIosDevice] = useState(false);
 
   useEffect(() => {
     initPwaInstall();
     void ensureServiceWorker();
     setInAppBrowser(isInAppBrowser());
     setAlreadyInstalled(isStandaloneApp());
+    setDesktopChrome(isDesktopChromium());
+    setIosDevice(isIosDevice());
     const session = getSessionAccount();
     setAccount(session);
     const qs = session ? `?account=${encodeURIComponent(session)}` : "";
@@ -97,7 +101,7 @@ export function MeScreen() {
         return;
       }
     }
-    if (isDesktopChromium()) {
+    if (desktopChrome) {
       setInstallHint(t.installDesktopHint);
     } else {
       setInstallHint(canPromptInstall() ? t.installTapPrompt : t.installWaitNetwork);
@@ -105,9 +109,9 @@ export function MeScreen() {
     setShowInstallGuide(true);
   }
 
-  const installSteps = isIosDevice()
+  const installSteps = iosDevice
     ? [t.installIosHint, t.install2, t.install3]
-    : isDesktopChromium()
+    : desktopChrome
       ? [t.install1Desktop, t.install2Desktop, t.install3Desktop]
       : [t.install1, t.install2, t.install3];
 
