@@ -5,6 +5,7 @@ import { useLanguage } from "@/lib/i18n";
 import {
   canPromptInstall,
   ensureServiceWorker,
+  getInstallBlockReason,
   initPwaInstall,
   isDesktopChromium,
   isInAppBrowser,
@@ -39,12 +40,15 @@ export function InstallAppButton({
     sync();
     window.addEventListener("olx-install-ready", sync);
     window.addEventListener("beforeinstallprompt", sync);
-    window.addEventListener("olx-appinstalled", () => setHidden(true));
-    window.addEventListener("appinstalled", () => setHidden(true));
-    const timer = window.setInterval(sync, 800);
+    const onInstalled = () => setHidden(true);
+    window.addEventListener("olx-appinstalled", onInstalled);
+    window.addEventListener("appinstalled", onInstalled);
+    const timer = window.setInterval(sync, 1000);
     return () => {
       window.removeEventListener("olx-install-ready", sync);
       window.removeEventListener("beforeinstallprompt", sync);
+      window.removeEventListener("olx-appinstalled", onInstalled);
+      window.removeEventListener("appinstalled", onInstalled);
       window.clearInterval(timer);
     };
   }, []);
@@ -62,20 +66,31 @@ export function InstallAppButton({
         return;
       }
 
+      // prompt() must run in the same user gesture — no awaits before this when ready.
       if (canPromptInstall()) {
-        const ok = await promptInstall();
-        if (ok) {
+        const result = await promptInstall();
+        if (result.ok) {
           setHidden(true);
           onHint?.(t.installHomeReady);
           return;
         }
+        if (result.reason === "dismissed") {
+          onHint?.(t.installTapPrompt);
+          return;
+        }
       }
 
-      // Not ready yet — tell user to wait for green, or use browser install UI.
+      const reason = getInstallBlockReason();
+      if (typeof console !== "undefined") {
+        console.info("[olx-pwa] Install click without prompt", reason);
+      }
+
       if (isDesktopChromium()) {
         onHint?.(t.installDesktopHint);
+      } else if (reason === "waiting-for-prompt") {
+        onHint?.(t.installWaitNetwork);
       } else {
-        onHint?.(ready ? t.installTapPrompt : t.installWaitNetwork);
+        onHint?.(t.installAndroidHint);
       }
       onGuide?.();
     } finally {
@@ -90,6 +105,8 @@ export function InstallAppButton({
       onClick={(e) => void onInstall(e)}
       disabled={busy}
       title={ready ? t.installTapPrompt : t.installWaitNetwork}
+      data-pwa-ready={ready ? "1" : "0"}
+      data-pwa-reason={getInstallBlockReason()}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path

@@ -3,20 +3,31 @@ type InstallPrompt = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-function win() {
-  return typeof window !== "undefined" ? window : null;
+export type InstallBlockReason =
+  | "ssr"
+  | "standalone"
+  | "in-app-browser"
+  | "no-service-worker"
+  | "waiting-for-prompt"
+  | "prompt-unavailable"
+  | "ready";
+
+function logPwa(message: string, detail?: unknown) {
+  if (typeof console !== "undefined") {
+    if (detail !== undefined) console.info(`[olx-pwa] ${message}`, detail);
+    else console.info(`[olx-pwa] ${message}`);
+  }
 }
 
 export function getDeferredInstall(): InstallPrompt | null {
-  const w = win();
-  const fromWindow = w?.__olxPwa as InstallPrompt | null | undefined;
+  if (typeof window === "undefined") return null;
+  const fromWindow = window.__olxPwa as InstallPrompt | null | undefined;
   if (fromWindow && typeof fromWindow.prompt === "function") return fromWindow;
   return null;
 }
 
 export function clearDeferredInstall() {
-  const w = win();
-  if (w) w.__olxPwa = null;
+  if (typeof window !== "undefined") window.__olxPwa = null;
 }
 
 export function isStandaloneApp() {
@@ -60,10 +71,20 @@ export function openInChrome() {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+export function getInstallBlockReason(): InstallBlockReason {
+  if (typeof window === "undefined") return "ssr";
+  if (isStandaloneApp()) return "standalone";
+  if (isInAppBrowser()) return "in-app-browser";
+  if (!("serviceWorker" in navigator)) return "no-service-worker";
+  if (getDeferredInstall()?.prompt) return "ready";
+  return "waiting-for-prompt";
+}
+
 /**
- * Capture install event as early as possible.
- * NOTE: we do NOT call preventDefault here in a way that blocks forever —
- * layout boot script handles early capture; this is the React fallback.
+ * Capture beforeinstallprompt as early as possible.
+ * preventDefault is required so our Install button can call prompt() later.
+ * Chrome desktop omnibox install remains available; Android mini-infobar is suppressed
+ * in favor of our explicit Install control.
  */
 export function initPwaInstall() {
   if (typeof window === "undefined") return;
@@ -73,10 +94,12 @@ export function initPwaInstall() {
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     window.__olxPwa = event as InstallPrompt;
+    logPwa("beforeinstallprompt captured — Install is ready");
     window.dispatchEvent(new Event("olx-install-ready"));
   });
   window.addEventListener("appinstalled", () => {
     clearDeferredInstall();
+    logPwa("appinstalled");
     window.dispatchEvent(new Event("olx-appinstalled"));
   });
 }
@@ -97,28 +120,42 @@ export async function ensureServiceWorker() {
     });
     await reg.update().catch(() => undefined);
     if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    logPwa("service worker registered", { scope: reg.scope, controlling: !!navigator.serviceWorker.controller });
     return reg;
-  } catch {
+  } catch (error) {
+    logPwa("service worker registration failed", error);
     return null;
   }
 }
 
 /** Call only from a direct user tap/click. */
-export async function promptInstall() {
+export async function promptInstall(): Promise<{
+  ok: boolean;
+  reason: InstallBlockReason | "accepted" | "dismissed" | "prompt-failed";
+}> {
   initPwaInstall();
-  if (isStandaloneApp()) return true;
-  if (isInAppBrowser()) return false;
+  if (isStandaloneApp()) return { ok: true, reason: "standalone" };
+  if (isInAppBrowser()) {
+    logPwa("install blocked: in-app browser");
+    return { ok: false, reason: "in-app-browser" };
+  }
 
   const pending = getDeferredInstall();
-  if (!pending?.prompt) return false;
+  if (!pending?.prompt) {
+    const reason = getInstallBlockReason();
+    logPwa("install blocked: no deferred prompt", reason);
+    return { ok: false, reason: reason === "ready" ? "prompt-unavailable" : reason };
+  }
 
   try {
     await pending.prompt();
     const choice = await pending.userChoice;
     clearDeferredInstall();
-    return choice.outcome === "accepted";
-  } catch {
-    return false;
+    logPwa("userChoice", choice);
+    return { ok: choice.outcome === "accepted", reason: choice.outcome };
+  } catch (error) {
+    logPwa("prompt() failed", error);
+    return { ok: false, reason: "prompt-failed" };
   }
 }
 

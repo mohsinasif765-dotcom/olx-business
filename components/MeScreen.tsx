@@ -93,11 +93,15 @@ export function MeScreen() {
     }
     // Must call prompt() in the same tap — no long waits before this.
     if (canPromptInstall()) {
-      const ok = await promptInstall();
-      if (ok) {
+      const result = await promptInstall();
+      if (result.ok) {
         setInstallHint(t.installHomeReady);
         setShowInstallGuide(false);
         setAlreadyInstalled(true);
+        return;
+      }
+      if (result.reason === "dismissed") {
+        setInstallHint(t.installTapPrompt);
         return;
       }
     }

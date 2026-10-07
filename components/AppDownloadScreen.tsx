@@ -70,8 +70,8 @@ export function AppDownloadScreen() {
         return;
       }
       if (canPromptInstall()) {
-        const ok = await promptInstall();
-        if (ok) {
+        const result = await promptInstall();
+        if (result.ok) {
           setInstalled(true);
           return;
         }
