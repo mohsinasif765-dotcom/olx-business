@@ -11,10 +11,13 @@ import { useLanguage } from "@/lib/i18n";
 import { displayName } from "@/lib/member-name";
 import { TELEGRAM_HELP } from "@/lib/links";
 import {
+  canPromptInstall,
+  ensureServiceWorker,
   initPwaInstall,
   isInAppBrowser,
   isIosDevice,
   isStandaloneApp,
+  openInChrome,
   promptInstall,
 } from "@/lib/pwa-install";
 
@@ -38,6 +41,7 @@ export function MeScreen() {
 
   useEffect(() => {
     initPwaInstall();
+    void ensureServiceWorker();
     setInAppBrowser(isInAppBrowser());
     setAlreadyInstalled(isStandaloneApp());
     const session = getSessionAccount();
@@ -79,16 +83,20 @@ export function MeScreen() {
       setInAppBrowser(true);
       setInstallHint(t.installOpenInBrowser);
       setShowInstallGuide(true);
+      openInChrome();
       return;
     }
-    const ok = await promptInstall();
-    if (ok) {
-      setInstallHint(t.installHomeReady);
-      setShowInstallGuide(false);
-      setAlreadyInstalled(true);
-      return;
+    // Must call prompt() in the same tap — no long waits before this.
+    if (canPromptInstall()) {
+      const ok = await promptInstall();
+      if (ok) {
+        setInstallHint(t.installHomeReady);
+        setShowInstallGuide(false);
+        setAlreadyInstalled(true);
+        return;
+      }
     }
-    setInstallHint(isIosDevice() ? t.installIosHint : t.installAndroidHint);
+    setInstallHint(canPromptInstall() ? t.installTapPrompt : t.installWaitNetwork);
     setShowInstallGuide(true);
   }
 

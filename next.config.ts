@@ -5,7 +5,14 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/sw.js",
-        headers: [{ key: "Service-Worker-Allowed", value: "/" }],
+        headers: [
+          { key: "Service-Worker-Allowed", value: "/" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+      {
+        source: "/manifest.webmanifest",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
       },
     ];
   },

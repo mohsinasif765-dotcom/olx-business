@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "OLX Business",
     short_name: "OLX Biz",
     description: "Car investment packages, USDT funding, and payouts.",
-    start_url: "/?source=pwa",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",

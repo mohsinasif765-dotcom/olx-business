@@ -7,11 +7,13 @@ import { useLanguage } from "@/lib/i18n";
 import {
   canPromptInstall,
   clearDeferredInstall,
+  ensureServiceWorker,
   initPwaInstall,
   isAndroidDevice,
   isInAppBrowser,
   isIosDevice,
   isStandaloneApp,
+  openInChrome,
   promptInstall,
 } from "@/lib/pwa-install";
 
@@ -32,6 +34,7 @@ export function AppDownloadScreen() {
 
   useEffect(() => {
     initPwaInstall();
+    void ensureServiceWorker();
     setInstalled(isStandaloneApp());
     setPlatform(detectPlatform());
     setInApp(isInAppBrowser());
@@ -45,11 +48,13 @@ export function AppDownloadScreen() {
     const onPrompt = () => setCanPrompt(true);
     window.addEventListener("appinstalled", onInstalled);
     window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("olx-install-ready", onPrompt);
     const timer = window.setInterval(() => setCanPrompt(canPromptInstall()), 700);
 
     return () => {
       window.removeEventListener("appinstalled", onInstalled);
       window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("olx-install-ready", onPrompt);
       window.clearInterval(timer);
     };
   }, []);
@@ -58,6 +63,12 @@ export function AppDownloadScreen() {
     if (installed) return;
     setBusy(true);
     try {
+      if (isInAppBrowser()) {
+        setInApp(true);
+        setShowGuide(true);
+        openInChrome();
+        return;
+      }
       if (canPromptInstall()) {
         const ok = await promptInstall();
         if (ok) {

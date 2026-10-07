@@ -3,10 +3,13 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { useLanguage } from "@/lib/i18n";
 import {
+  canPromptInstall,
+  ensureServiceWorker,
   initPwaInstall,
   isInAppBrowser,
   isIosDevice,
   isStandaloneApp,
+  openInChrome,
   promptInstall,
 } from "@/lib/pwa-install";
 
@@ -22,13 +25,30 @@ export function InstallAppButton({
   const { t } = useLanguage();
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     initPwaInstall();
-    if (isStandaloneApp()) setHidden(true);
+    void ensureServiceWorker();
+    if (isStandaloneApp()) {
+      setHidden(true);
+      return;
+    }
+
+    const sync = () => setReady(canPromptInstall());
+    sync();
+    const onReady = () => sync();
     const onInstalled = () => setHidden(true);
+    window.addEventListener("olx-install-ready", onReady);
+    window.addEventListener("beforeinstallprompt", onReady);
     window.addEventListener("appinstalled", onInstalled);
-    return () => window.removeEventListener("appinstalled", onInstalled);
+    const timer = window.setInterval(sync, 1000);
+    return () => {
+      window.removeEventListener("olx-install-ready", onReady);
+      window.removeEventListener("beforeinstallprompt", onReady);
+      window.removeEventListener("appinstalled", onInstalled);
+      window.clearInterval(timer);
+    };
   }, []);
 
   if (hidden) return null;
@@ -40,15 +60,21 @@ export function InstallAppButton({
       if (isInAppBrowser()) {
         onHint?.(t.installOpenInBrowser);
         onGuide?.();
+        openInChrome();
         return;
       }
-      const ok = await promptInstall();
-      if (ok) {
-        setHidden(true);
-        onHint?.(t.installHomeReady);
-        return;
+
+      // prompt() must run in the same tap — no long awaits before this.
+      if (canPromptInstall()) {
+        const ok = await promptInstall();
+        if (ok) {
+          setHidden(true);
+          onHint?.(t.installHomeReady);
+          return;
+        }
       }
-      onHint?.(isIosDevice() ? t.installIosHint : t.installAndroidHint);
+
+      onHint?.(ready ? t.installTapPrompt : t.installWaitNetwork);
       onGuide?.();
     } finally {
       setBusy(false);
@@ -56,7 +82,12 @@ export function InstallAppButton({
   }
 
   return (
-    <button type="button" className="pwa-install-btn" onClick={(e) => void onInstall(e)} disabled={busy}>
+    <button
+      type="button"
+      className={`pwa-install-btn${ready ? " is-ready" : ""}`}
+      onClick={(e) => void onInstall(e)}
+      disabled={busy}
+    >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
           d="M12 4v11m0 0-4-4m4 4 4-4M5 18h14"
