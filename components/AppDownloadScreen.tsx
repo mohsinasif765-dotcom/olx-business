@@ -8,22 +8,17 @@ import {
   canPromptInstall,
   clearDeferredInstall,
   initPwaInstall,
+  isAndroidDevice,
+  isInAppBrowser,
+  isIosDevice,
   isStandaloneApp,
   promptInstall,
 } from "@/lib/pwa-install";
 
 function detectPlatform() {
-  if (typeof navigator === "undefined") return "other" as const;
-  const ua = navigator.userAgent;
-  if (/iPad|iPhone|iPod/.test(ua)) return "ios" as const;
-  if (/Android/i.test(ua)) return "android" as const;
+  if (isIosDevice()) return "ios" as const;
+  if (isAndroidDevice()) return "android" as const;
   return "other" as const;
-}
-
-function isInAppBrowser() {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent;
-  return /FBAN|FBAV|Instagram|Line\/|WhatsApp|Twitter|MicroMessenger/i.test(ua);
 }
 
 export function AppDownloadScreen() {

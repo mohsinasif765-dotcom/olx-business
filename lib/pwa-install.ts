@@ -32,6 +32,23 @@ export function isStandaloneApp() {
   return window.matchMedia("(display-mode: standalone)").matches || Boolean(nav.standalone);
 }
 
+export function isInAppBrowser() {
+  if (typeof navigator === "undefined") return false;
+  return /FBAN|FBAV|Instagram|Line\/|WhatsApp|Twitter|MicroMessenger|BytedanceWebview|TikTok/i.test(
+    navigator.userAgent
+  );
+}
+
+export function isAndroidDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /Android/i.test(navigator.userAgent);
+}
+
+export function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
 export function initPwaInstall() {
   if (typeof window === "undefined") return;
   const existing = (window as PwaWindow).__olxPwa;
@@ -39,7 +56,12 @@ export function initPwaInstall() {
   if (listening) return;
   listening = true;
   window.addEventListener("beforeinstallprompt", (event) => {
-    event.preventDefault();
+    // On phones, let Chrome keep its own Install / Add to Home screen UI.
+    // Only suppress the default banner on desktop so our custom button owns it.
+    const mobile = isAndroidDevice() || isIosDevice();
+    if (!mobile) {
+      event.preventDefault();
+    }
     store(event as InstallPrompt);
   });
   window.addEventListener("appinstalled", () => {
@@ -53,10 +75,14 @@ export async function promptInstall() {
   if (isStandaloneApp()) return true;
   const pending = getDeferredInstall();
   if (!pending?.prompt) return false;
-  await pending.prompt();
-  const choice = await pending.userChoice;
-  clearDeferredInstall();
-  return choice.outcome === "accepted";
+  try {
+    await pending.prompt();
+    const choice = await pending.userChoice;
+    clearDeferredInstall();
+    return choice.outcome === "accepted";
+  } catch {
+    return false;
+  }
 }
 
 export function canPromptInstall() {

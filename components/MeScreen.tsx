@@ -10,7 +10,13 @@ import { clearSession, getSessionAccount, maskAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 import { displayName } from "@/lib/member-name";
 import { TELEGRAM_HELP } from "@/lib/links";
-import { promptInstall } from "@/lib/pwa-install";
+import {
+  initPwaInstall,
+  isInAppBrowser,
+  isIosDevice,
+  isStandaloneApp,
+  promptInstall,
+} from "@/lib/pwa-install";
 
 type MeFlags = { rechargeOn: boolean; withdrawOn: boolean; transferOn: boolean };
 
@@ -26,8 +32,14 @@ export function MeScreen() {
   const [showAccount, setShowAccount] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [installHint, setInstallHint] = useState("");
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [inAppBrowser, setInAppBrowser] = useState(false);
+  const [alreadyInstalled, setAlreadyInstalled] = useState(false);
 
   useEffect(() => {
+    initPwaInstall();
+    setInAppBrowser(isInAppBrowser());
+    setAlreadyInstalled(isStandaloneApp());
     const session = getSessionAccount();
     setAccount(session);
     const qs = session ? `?account=${encodeURIComponent(session)}` : "";
@@ -59,14 +71,30 @@ export function MeScreen() {
   }
 
   async function installApp() {
+    if (alreadyInstalled) {
+      setInstallHint(t.alreadyInstalled);
+      return;
+    }
+    if (isInAppBrowser()) {
+      setInAppBrowser(true);
+      setInstallHint(t.installOpenInBrowser);
+      setShowInstallGuide(true);
+      return;
+    }
     const ok = await promptInstall();
     if (ok) {
       setInstallHint(t.installHomeReady);
+      setShowInstallGuide(false);
+      setAlreadyInstalled(true);
       return;
     }
-    const ios = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
-    setInstallHint(ios ? t.installIosHint : t.installAndroidHint);
+    setInstallHint(isIosDevice() ? t.installIosHint : t.installAndroidHint);
+    setShowInstallGuide(true);
   }
+
+  const installSteps = isIosDevice()
+    ? [t.installIosHint, t.install2, t.install3]
+    : [t.install1, t.install2, t.install3];
 
   return (
     <div className="star-field">
@@ -145,12 +173,35 @@ export function MeScreen() {
               <InstallRowIcon />
             </span>
             <span className="flex-1">{t.appDownload}</span>
-            <InstallAppButton onHint={setInstallHint} />
+            {!alreadyInstalled ? (
+              <InstallAppButton
+                onHint={setInstallHint}
+                onGuide={() => setShowInstallGuide(true)}
+              />
+            ) : null}
           </button>
-          {installHint ? (
+          {inAppBrowser ? (
+            <p className="border-t border-[#ffd27a]/20 bg-[#ffd27a]/10 px-4 py-3 text-[12px] leading-5 text-[#ffd27a]">
+              {t.installOpenInBrowser}
+            </p>
+          ) : null}
+          {installHint && !showInstallGuide ? (
             <p className="border-t border-white/8 bg-black/20 px-4 py-3 text-[12px] leading-5 text-[#9ec6ff]">
               {installHint}
             </p>
+          ) : null}
+          {showInstallGuide && !alreadyInstalled ? (
+            <div className="border-t border-white/8 bg-black/25 px-4 py-3">
+              <p className="text-[12px] font-semibold text-[#3dff9a]">{t.installTitle}</p>
+              <p className="mt-1 text-[11px] leading-4 text-white/55">{t.installWhyManual}</p>
+              <ol className="mt-2 space-y-1.5 text-[12px] leading-5 text-[#9ec6ff]">
+                {installSteps.map((step, i) => (
+                  <li key={i}>
+                    {i + 1}. {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
           ) : null}
           <Menu href="/faq" icon={<FaqRowIcon />} label={t.faq} />
           <Menu href="/me/password" icon={<DotsIcon />} label={t.loginPassword} />

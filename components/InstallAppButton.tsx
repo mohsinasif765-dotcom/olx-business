@@ -2,14 +2,22 @@
 
 import { useEffect, useState, type MouseEvent } from "react";
 import { useLanguage } from "@/lib/i18n";
-import { canPromptInstall, initPwaInstall, isStandaloneApp, promptInstall } from "@/lib/pwa-install";
+import {
+  initPwaInstall,
+  isInAppBrowser,
+  isIosDevice,
+  isStandaloneApp,
+  promptInstall,
+} from "@/lib/pwa-install";
 
 export function InstallAppButton({
   stopRowClick = true,
   onHint,
+  onGuide,
 }: {
   stopRowClick?: boolean;
   onHint?: (message: string) => void;
+  onGuide?: () => void;
 }) {
   const { t } = useLanguage();
   const [hidden, setHidden] = useState(false);
@@ -29,14 +37,19 @@ export function InstallAppButton({
     if (stopRowClick) event.stopPropagation();
     setBusy(true);
     try {
+      if (isInAppBrowser()) {
+        onHint?.(t.installOpenInBrowser);
+        onGuide?.();
+        return;
+      }
       const ok = await promptInstall();
       if (ok) {
         setHidden(true);
         onHint?.(t.installHomeReady);
         return;
       }
-      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      onHint?.(ios ? t.installIosHint : t.installAndroidHint);
+      onHint?.(isIosDevice() ? t.installIosHint : t.installAndroidHint);
+      onGuide?.();
     } finally {
       setBusy(false);
     }
