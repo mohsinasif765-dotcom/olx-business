@@ -1476,18 +1476,21 @@ button:active,
 .pwa-install-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid rgba(170, 195, 255, 0.28);
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  min-width: 78px;
+  padding: 0 12px;
+  border: 1px solid rgba(170, 195, 255, 0.35);
   border-radius: 999px;
   background: linear-gradient(180deg, #4d7dff, #2f5bff);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(47, 91, 255, 0.35);
 }
 
 .pwa-install-btn:disabled {

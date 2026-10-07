@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { clearSession, getSessionAccount, maskAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 import { displayName } from "@/lib/member-name";
 import { TELEGRAM_HELP } from "@/lib/links";
-import { canPromptInstall, promptInstall } from "@/lib/pwa-install";
+import { promptInstall } from "@/lib/pwa-install";
 
 type MeFlags = { rechargeOn: boolean; withdrawOn: boolean; transferOn: boolean };
 
@@ -24,6 +25,7 @@ export function MeScreen() {
   const [flags, setFlags] = useState<MeFlags>({ rechargeOn: true, withdrawOn: true, transferOn: true });
   const [showAccount, setShowAccount] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [installHint, setInstallHint] = useState("");
 
   useEffect(() => {
     const session = getSessionAccount();
@@ -57,11 +59,13 @@ export function MeScreen() {
   }
 
   async function installApp() {
-    if (canPromptInstall()) {
-      const ok = await promptInstall();
-      if (ok) return;
+    const ok = await promptInstall();
+    if (ok) {
+      setInstallHint(t.installHomeReady);
+      return;
     }
-    router.push("/app-download");
+    const ios = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setInstallHint(ios ? t.installIosHint : t.installAndroidHint);
   }
 
   return (
@@ -141,8 +145,13 @@ export function MeScreen() {
               <InstallRowIcon />
             </span>
             <span className="flex-1">{t.appDownload}</span>
-            <span className="text-[12px] text-[#9ec6ff]">{t.install}</span>
+            <InstallAppButton onHint={setInstallHint} />
           </button>
+          {installHint ? (
+            <p className="border-t border-white/8 bg-black/20 px-4 py-3 text-[12px] leading-5 text-[#9ec6ff]">
+              {installHint}
+            </p>
+          ) : null}
           <Menu href="/faq" icon={<FaqRowIcon />} label={t.faq} />
           <Menu href="/me/password" icon={<DotsIcon />} label={t.loginPassword} />
           <Menu href="/me/security" icon={<ShieldIcon />} label={t.securityPassword} />

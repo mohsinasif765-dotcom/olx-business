@@ -33,7 +33,7 @@ export function AppDownloadScreen() {
   const [canPrompt, setCanPrompt] = useState(false);
   const [platform, setPlatform] = useState<"ios" | "android" | "other">("other");
   const [inApp, setInApp] = useState(false);
-  const [swReady, setSwReady] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     initPwaInstall();
@@ -44,22 +44,13 @@ export function AppDownloadScreen() {
 
     const onInstalled = () => {
       setInstalled(true);
+      setShowGuide(false);
       clearDeferredInstall();
     };
     const onPrompt = () => setCanPrompt(true);
     window.addEventListener("appinstalled", onInstalled);
     window.addEventListener("beforeinstallprompt", onPrompt);
     const timer = window.setInterval(() => setCanPrompt(canPromptInstall()), 700);
-
-    void (async () => {
-      if (!("serviceWorker" in navigator)) return;
-      try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        setSwReady(Boolean(reg?.active || navigator.serviceWorker.controller));
-      } catch {
-        setSwReady(false);
-      }
-    })();
 
     return () => {
       window.removeEventListener("appinstalled", onInstalled);
@@ -72,8 +63,14 @@ export function AppDownloadScreen() {
     if (installed) return;
     setBusy(true);
     try {
-      const ok = await promptInstall();
-      if (ok) setInstalled(true);
+      if (canPromptInstall()) {
+        const ok = await promptInstall();
+        if (ok) {
+          setInstalled(true);
+          return;
+        }
+      }
+      setShowGuide(true);
     } finally {
       setBusy(false);
     }
@@ -81,10 +78,8 @@ export function AppDownloadScreen() {
 
   const steps =
     platform === "ios"
-      ? [t.installIosHint, t.install1, t.install2, t.install3]
-      : platform === "android"
-        ? [t.installAndroidHint, t.install1, t.install2, t.install3]
-        : [t.phoneInstall, t.install1, t.install2, t.install3];
+      ? [t.installIosHint, t.install2, t.install3]
+      : [t.installAndroidHint, t.install2, t.install3];
 
   return (
     <div className="star-field">
@@ -104,7 +99,7 @@ export function AppDownloadScreen() {
           <BrandLogo size={88} variant="splash" />
           <h2 className="mt-4 text-[22px] font-semibold">OLX Business</h2>
           <p className="mt-2 max-w-[300px] text-[13px] leading-5 text-white/55">
-            {installed ? t.alreadyInstalled : t.addToPhone}
+            {installed ? t.installHomeReady : t.installHomeAfter}
           </p>
         </div>
 
@@ -114,27 +109,26 @@ export function AppDownloadScreen() {
           </p>
         ) : null}
 
-        {!installed && canPrompt ? (
-          <button
-            type="button"
-            className="store-btn store-download"
-            onClick={() => void install()}
-            disabled={busy}
-          >
-            {busy ? t.loading : t.installNow}
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className={`store-btn store-download ${installed ? "is-on" : ""}`}
+          onClick={() => void install()}
+          disabled={busy || installed}
+        >
+          {installed ? t.alreadyInstalled : busy ? t.loading : t.installNow}
+        </button>
 
         {installed ? (
-          <button type="button" className="store-btn store-download is-on" disabled>
-            {t.alreadyInstalled}
-          </button>
-        ) : null}
+          <p className="mt-4 rounded-xl border border-[#3dff9a]/25 bg-[#3dff9a]/10 px-3 py-3 text-center text-[13px] leading-5 text-[#3dff9a]">
+            {t.installHomeReady}
+          </p>
+        ) : (
+          <p className="mt-3 text-center text-[12px] leading-5 text-white/50">{t.installHomeAfter}</p>
+        )}
 
-        {!installed && !canPrompt ? (
-          <div className="deposit-card space-y-3 p-4">
+        {!installed && (showGuide || !canPrompt) ? (
+          <div className="deposit-card mt-5 space-y-3 p-4">
             <p className="text-[13px] font-semibold text-[#3dff9a]">{t.installTitle}</p>
-            <p className="text-[12px] leading-5 text-white/65">{t.installWhyManual}</p>
             <ol className="space-y-2 text-[12px] leading-5 text-white/80">
               {steps.map((step, i) => (
                 <li key={i}>
@@ -142,14 +136,7 @@ export function AppDownloadScreen() {
                 </li>
               ))}
             </ol>
-            {platform === "android" && !swReady ? (
-              <p className="text-[11px] text-white/45">{t.installWaitNetwork}</p>
-            ) : null}
           </div>
-        ) : null}
-
-        {!installed && canPrompt ? (
-          <p className="mt-4 text-center text-[12px] text-white/45">{t.installTapPrompt}</p>
         ) : null}
       </div>
     </div>
