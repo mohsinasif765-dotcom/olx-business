@@ -96,6 +96,9 @@ create table if not exists public.site_settings (
   updated_at timestamptz not null default now()
 );
 
+-- Brand / splash logos live in Storage bucket `brand` (logo.* / splash.*).
+-- Admin Settings → Brand uploads there; member BrandLogo reads via /api/brand-assets.
+
 create table if not exists public.admin_auth (
   id int primary key default 1 check (id = 1),
   username text not null default 'admin',
@@ -165,7 +168,24 @@ create table if not exists public.recharges (
   tx_hash text not null default '',
   status text not null default 'pending',
   at text not null default '',
-  note text not null default ''
+  note text not null default '',
+  slip_url text not null default ''
+);
+
+alter table public.recharges add column if not exists slip_url text not null default '';
+
+create table if not exists public.deposit_slips (
+  id text primary key,
+  account text not null default '',
+  image text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.package_photos (
+  id text primary key,
+  catalog text not null check (catalog in ('car', 'shop')),
+  image text not null,
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.withdraws (
@@ -212,6 +232,8 @@ alter table public.faqs enable row level security;
 alter table public.activities enable row level security;
 alter table public.activity_state enable row level security;
 alter table public.recharges enable row level security;
+alter table public.deposit_slips enable row level security;
+alter table public.package_photos enable row level security;
 alter table public.withdraws enable row level security;
 alter table public.transfers enable row level security;
 alter table public.audit_log enable row level security;
@@ -247,6 +269,8 @@ grant all on public.faqs to service_role;
 grant all on public.activities to service_role;
 grant all on public.activity_state to service_role;
 grant all on public.recharges to service_role;
+grant all on public.deposit_slips to service_role;
+grant all on public.package_photos to service_role;
 grant all on public.withdraws to service_role;
 grant all on public.transfers to service_role;
 grant all on public.audit_log to service_role;

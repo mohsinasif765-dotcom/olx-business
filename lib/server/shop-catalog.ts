@@ -1,4 +1,5 @@
 import { shopKind, type ShopKind, type ShopPlan } from "@/lib/shop";
+import { listCatalogPhotoUrls } from "@/lib/server/package-photos";
 import { zuvoAdmin } from "@/lib/zuvo";
 
 type PackageRow = {
@@ -11,11 +12,12 @@ type PackageRow = {
   enabled: boolean;
 };
 
-function photoUrl(id: string) {
+function photoUrl(id: string, publicUrl?: string) {
+  if (publicUrl) return publicUrl;
   return `/api/shop-photo/${encodeURIComponent(id)}`;
 }
 
-function toPlan(row: PackageRow): ShopPlan {
+function toPlan(row: PackageRow, photoUrls: Record<string, string>): ShopPlan {
   return {
     id: row.id,
     name: row.name,
@@ -23,7 +25,7 @@ function toPlan(row: PackageRow): ShopPlan {
     invest: row.invest,
     returns: row.returns,
     term: row.term,
-    image: photoUrl(row.id),
+    image: photoUrl(row.id, photoUrls[row.id]),
   };
 }
 
@@ -45,5 +47,6 @@ export async function listLiveShopPlans(): Promise<ShopPlan[]> {
     error = retry.error;
   }
   if (error) return [];
-  return ((data || []) as PackageRow[]).map(toPlan);
+  const photoUrls = await listCatalogPhotoUrls("shop");
+  return ((data || []) as PackageRow[]).map((row) => toPlan(row, photoUrls));
 }

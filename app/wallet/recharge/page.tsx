@@ -57,8 +57,19 @@ function RechargeDetail() {
   const [amount, setAmount] = useState("");
   const [hash, setHash] = useState("");
   const [slip, setSlip] = useState<File | null>(null);
+  const [slipPreview, setSlipPreview] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!slip) {
+      setSlipPreview("");
+      return;
+    }
+    const url = URL.createObjectURL(slip);
+    setSlipPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [slip]);
 
   useEffect(() => {
     void fetchContent()
@@ -135,13 +146,15 @@ function RechargeDetail() {
     setBusy(true);
     let slipUrl = "";
     try {
+      const account = getSessionAccount() || "";
       const form = new FormData();
       form.append("file", slip);
+      form.append("account", account);
       const up = await fetch("/api/proof", { method: "POST", body: form });
-      const upData = (await up.json()) as { url?: string };
+      const upData = (await up.json()) as { url?: string; error?: string };
       if (!up.ok || !upData.url) {
         setBusy(false);
-        setMessage(t.slipRequired);
+        setMessage(upData.error || t.slipRequired);
         return;
       }
       slipUrl = upData.url;
@@ -172,6 +185,7 @@ function RechargeDetail() {
     setAmount("");
     setHash("");
     setSlip(null);
+    setSlipPreview("");
   }
 
   return (
@@ -316,16 +330,43 @@ function RechargeDetail() {
               className="auth-input"
             />
           </label>
-          <label className="block">
-            <span className="mb-2 block text-[12px] text-white/55">{t.uploadSlip}</span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="auth-input"
-              onChange={(event) => setSlip(event.target.files?.[0] || null)}
-            />
-            {slip ? <p className="mt-1 text-[12px] text-white/50">{slip.name}</p> : null}
-          </label>
+          <div>
+            <p className="mb-1 text-[12px] text-white/55">{t.uploadSlip}</p>
+            <p className="mb-2 text-[11px] leading-4 text-white/40">{t.uploadSlipHint}</p>
+            <label className={`slip-upload ${slip ? "has-file" : ""}`}>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(event) => setSlip(event.target.files?.[0] || null)}
+              />
+              {slipPreview ? (
+                <img src={slipPreview} alt="" className="slip-upload-preview" />
+              ) : (
+                <span className="slip-upload-ico" aria-hidden>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                    <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+                    <path
+                      d="M4.5 16.5l4.2-4.2a1.5 1.5 0 012.1 0L14 15.5l1.7-1.7a1.5 1.5 0 012.1 0l1.7 1.7"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-medium text-white">
+                  {slip ? slip.name : t.uploadSlipAction}
+                </span>
+                <span className="mt-0.5 block text-[11px] text-white/45">
+                  {slip ? "Tap to change image" : "JPG · PNG · WEBP"}
+                </span>
+              </span>
+            </label>
+          </div>
           <button type="submit" className="vip-recharge-btn w-full" disabled={busy || paused}>
             {t.submitOrder}
           </button>

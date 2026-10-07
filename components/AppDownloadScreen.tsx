@@ -50,7 +50,7 @@ export function AppDownloadScreen() {
         </header>
 
         <div className="mb-8 flex flex-col items-center text-center">
-          <BrandLogo size={88} />
+          <BrandLogo size={88} variant="splash" />
           <h2 className="mt-4 text-[22px] font-semibold">OLX Business</h2>
         </div>
 

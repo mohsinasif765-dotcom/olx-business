@@ -148,7 +148,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         </div>
         <div className="flex flex-col items-center">
           <div className="logo-slot mb-4 flex items-center justify-center">
-            <BrandLogo size={112} />
+            <BrandLogo size={112} variant="splash" />
           </div>
 
           <h1 className="mb-8 text-center text-[32px] font-semibold text-white">

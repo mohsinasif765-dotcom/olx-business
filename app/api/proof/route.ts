@@ -1,8 +1,6 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
+import { storeDepositSlip } from "@/lib/server/deposit-slips";
 
-const DIR = path.join(process.cwd(), "public", "uploads", "deposits");
 const MAX_BYTES = 4 * 1024 * 1024;
 const TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -22,9 +20,30 @@ export async function POST(request: Request) {
   const ext = TYPES[file.type];
   if (!ext) return NextResponse.json({ error: "type" }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "size" }, { status: 400 });
+
   const bytes = Buffer.from(await file.arrayBuffer());
-  const name = `${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-  await mkdir(DIR, { recursive: true });
-  await writeFile(path.join(DIR, name), bytes);
-  return NextResponse.json({ url: `/uploads/deposits/${name}` });
+  const id = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  const account = String(form.get("account") || "").trim().toLowerCase();
+
+  try {
+    const saved = await storeDepositSlip({
+      id,
+      account,
+      bytes,
+      contentType: file.type,
+      ext,
+    });
+    return NextResponse.json({
+      ok: true,
+      id: saved.id,
+      url: saved.url,
+      stored: "storage",
+    });
+  } catch (error) {
+    // Last resort: inline data URL so deposit can still submit
+    const image = `data:${file.type};base64,${bytes.toString("base64")}`;
+    const message = error instanceof Error ? error.message : "save";
+    console.error("deposit slip storage failed", message);
+    return NextResponse.json({ ok: true, id, url: image, stored: "inline" });
+  }
 }

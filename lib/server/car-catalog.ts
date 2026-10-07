@@ -1,4 +1,5 @@
 import { type CarKind, type CarPlan } from "@/lib/cars";
+import { listCatalogPhotoUrls } from "@/lib/server/package-photos";
 import { zuvoAdmin } from "@/lib/zuvo";
 
 type PackageRow = {
@@ -11,11 +12,12 @@ type PackageRow = {
   enabled: boolean;
 };
 
-function photoUrl(id: string) {
+function photoUrl(id: string, publicUrl?: string) {
+  if (publicUrl) return publicUrl;
   return `/api/car-photo/${encodeURIComponent(id)}`;
 }
 
-function toPlan(row: PackageRow): CarPlan {
+function toPlan(row: PackageRow, photoUrls: Record<string, string>): CarPlan {
   return {
     id: row.id,
     name: row.name,
@@ -23,7 +25,7 @@ function toPlan(row: PackageRow): CarPlan {
     invest: row.invest,
     returns: row.returns,
     term: row.term,
-    image: photoUrl(row.id),
+    image: photoUrl(row.id, photoUrls[row.id]),
   };
 }
 
@@ -45,7 +47,8 @@ export async function listLivePlans(): Promise<CarPlan[]> {
     error = retry.error;
   }
   if (error) throw error;
-  return ((data || []) as PackageRow[]).map(toPlan);
+  const photoUrls = await listCatalogPhotoUrls("car");
+  return ((data || []) as PackageRow[]).map((row) => toPlan(row, photoUrls));
 }
 
 export async function replacePlans(plans: CarPlan[]) {

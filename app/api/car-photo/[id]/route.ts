@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { zuvoAdmin } from "@/lib/zuvo";
+import { readPackagePhoto } from "@/lib/server/package-photos";
 
 function bytesFromDataUrl(image: string) {
   const match = image.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
@@ -11,19 +11,22 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const { id } = await context.params;
   if (!id) return new NextResponse("Not found", { status: 404 });
   try {
-    const { data, error } = await zuvoAdmin().from("car_packages").select("image").eq("id", id).maybeSingle();
-    if (error) throw error;
-    const image = String(data?.image || "");
+    const image = await readPackagePhoto("car", id);
+    if (/^https?:\/\//i.test(image)) {
+      return NextResponse.redirect(image, {
+        headers: { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
+      });
+    }
     const parsed = bytesFromDataUrl(image);
     if (parsed) {
       return new NextResponse(new Uint8Array(parsed.buf), {
-        headers: { "Content-Type": parsed.type, "Cache-Control": "public, max-age=60" },
+        headers: {
+          "Content-Type": parsed.type,
+          "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        },
       });
     }
-    if (/^https?:\/\//i.test(image)) {
-      return NextResponse.redirect(image);
-    }
-    if (image.startsWith("/")) {
+    if (image.startsWith("/") && !image.startsWith("/api/")) {
       return NextResponse.redirect(new URL(image, request.url));
     }
     return new NextResponse("Not found", { status: 404 });

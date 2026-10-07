@@ -37,7 +37,7 @@ export function AboutScreen() {
 
         <div className="mb-4 flex justify-center">
           <div className="about-globe">
-            <BrandLogo size={72} />
+            <BrandLogo size={72} variant="splash" />
           </div>
         </div>
 
