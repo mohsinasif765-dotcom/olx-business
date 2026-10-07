@@ -6,6 +6,7 @@ import {
   canPromptInstall,
   ensureServiceWorker,
   initPwaInstall,
+  isDesktopChromium,
   isInAppBrowser,
   isStandaloneApp,
   openInChrome,
@@ -61,14 +62,21 @@ export function InstallAppButton({
         return;
       }
 
-      const ok = await promptInstall();
-      if (ok) {
-        setHidden(true);
-        onHint?.(t.installHomeReady);
-        return;
+      if (canPromptInstall()) {
+        const ok = await promptInstall();
+        if (ok) {
+          setHidden(true);
+          onHint?.(t.installHomeReady);
+          return;
+        }
       }
 
-      onHint?.(ready ? t.installTapPrompt : t.installWaitNetwork);
+      // Not ready yet — tell user to wait for green, or use browser install UI.
+      if (isDesktopChromium()) {
+        onHint?.(t.installDesktopHint);
+      } else {
+        onHint?.(ready ? t.installTapPrompt : t.installWaitNetwork);
+      }
       onGuide?.();
     } finally {
       setBusy(false);

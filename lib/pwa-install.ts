@@ -3,16 +3,14 @@ type InstallPrompt = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-type PwaWindow = Window & { __olxPwa?: InstallPrompt | null };
-
 function win() {
-  return typeof window !== "undefined" ? (window as PwaWindow) : null;
+  return typeof window !== "undefined" ? window : null;
 }
 
 export function getDeferredInstall(): InstallPrompt | null {
   const w = win();
   const fromWindow = w?.__olxPwa;
-  if (fromWindow?.prompt) return fromWindow;
+  if (fromWindow && typeof fromWindow.prompt === "function") return fromWindow as InstallPrompt;
   return null;
 }
 
@@ -44,6 +42,13 @@ export function isIosDevice() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
+export function isDesktopChromium() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  return !mobile && (/Chrome|Edg|OPR|Brave/i.test(ua) || !!(window as Window & { chrome?: unknown }).chrome);
+}
+
 export function openInChrome() {
   if (typeof window === "undefined") return;
   const url = window.location.href;
@@ -56,18 +61,18 @@ export function openInChrome() {
 }
 
 /**
- * Boot listener is also inlaid in layout (beforeInteractive) so we never miss
- * beforeinstallprompt. This syncs the React module with that early capture.
+ * Capture install event as early as possible.
+ * NOTE: we do NOT call preventDefault here in a way that blocks forever —
+ * layout boot script handles early capture; this is the React fallback.
  */
 export function initPwaInstall() {
   if (typeof window === "undefined") return;
-  const w = win()!;
-  if (w.__olxPwaBooted) return;
-  w.__olxPwaBooted = true;
+  if (window.__olxPwaBooted) return;
+  window.__olxPwaBooted = true;
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
-    w.__olxPwa = event as InstallPrompt;
+    window.__olxPwa = event as InstallPrompt;
     window.dispatchEvent(new Event("olx-install-ready"));
   });
   window.addEventListener("appinstalled", () => {
@@ -78,7 +83,7 @@ export function initPwaInstall() {
 
 declare global {
   interface Window {
-    __olxPwa?: InstallPrompt | null;
+    __olxPwa?: InstallPrompt | Event | null;
     __olxPwaBooted?: boolean;
   }
 }

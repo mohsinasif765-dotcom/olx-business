@@ -14,6 +14,7 @@ import {
   canPromptInstall,
   ensureServiceWorker,
   initPwaInstall,
+  isDesktopChromium,
   isInAppBrowser,
   isIosDevice,
   isStandaloneApp,
@@ -96,13 +97,19 @@ export function MeScreen() {
         return;
       }
     }
-    setInstallHint(canPromptInstall() ? t.installTapPrompt : t.installWaitNetwork);
+    if (isDesktopChromium()) {
+      setInstallHint(t.installDesktopHint);
+    } else {
+      setInstallHint(canPromptInstall() ? t.installTapPrompt : t.installWaitNetwork);
+    }
     setShowInstallGuide(true);
   }
 
   const installSteps = isIosDevice()
     ? [t.installIosHint, t.install2, t.install3]
-    : [t.install1, t.install2, t.install3];
+    : isDesktopChromium()
+      ? [t.install1Desktop, t.install2Desktop, t.install3Desktop]
+      : [t.install1, t.install2, t.install3];
 
   return (
     <div className="star-field">
