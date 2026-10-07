@@ -1,5 +1,5 @@
-const CACHE = "olx-pwa-v3";
-const PRECACHE = ["/app-icon-192.png", "/app-icon-512.png", "/apple-touch-icon.png", "/logo.png"];
+const CACHE = "olx-pwa-v4";
+const PRECACHE = ["/app-icon-192.png", "/app-icon-512.png", "/apple-touch-icon.png", "/logo.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

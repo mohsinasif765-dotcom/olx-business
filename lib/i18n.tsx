@@ -201,7 +201,7 @@ const translations = {
     issued: "Issued",
     viewAgreement: "User Agreement",
     viewPrivacy: "Privacy Policy",
-    appDownload: "App",
+    appDownload: "App Install",
     downloadAppCta: "App Download",
     appHeroKicker: "Official app",
     addToPhone: "Install on your phone — same login as the website.",

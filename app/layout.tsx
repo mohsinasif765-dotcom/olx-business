@@ -11,10 +11,11 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
-      { url: "/api/brand-logo", type: "image/png" },
       { url: "/app-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/app-icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/logo.png", type: "image/png" },
     ],
-    apple: "/api/brand-logo",
+    apple: "/apple-touch-icon.png",
   },
   appleWebApp: {
     capable: true,

@@ -26,6 +26,12 @@ export function clearDeferredInstall() {
   }
 }
 
+export function isStandaloneApp() {
+  if (typeof window === "undefined") return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return window.matchMedia("(display-mode: standalone)").matches || Boolean(nav.standalone);
+}
+
 export function initPwaInstall() {
   if (typeof window === "undefined") return;
   const existing = (window as PwaWindow).__olxPwa;
@@ -41,12 +47,19 @@ export function initPwaInstall() {
   });
 }
 
+/** Returns true if the native install prompt was shown and accepted. */
 export async function promptInstall() {
   initPwaInstall();
+  if (isStandaloneApp()) return true;
   const pending = getDeferredInstall();
   if (!pending?.prompt) return false;
   await pending.prompt();
   const choice = await pending.userChoice;
   clearDeferredInstall();
   return choice.outcome === "accepted";
+}
+
+export function canPromptInstall() {
+  initPwaInstall();
+  return Boolean(getDeferredInstall()?.prompt) && !isStandaloneApp();
 }

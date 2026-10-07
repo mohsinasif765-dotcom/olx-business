@@ -4,13 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { InstallAppButton } from "@/components/InstallAppButton";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { clearSession, getSessionAccount, maskAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 import { displayName } from "@/lib/member-name";
 import { TELEGRAM_HELP } from "@/lib/links";
-import { promptInstall } from "@/lib/pwa-install";
+import { canPromptInstall, promptInstall } from "@/lib/pwa-install";
 
 type MeFlags = { rechargeOn: boolean; withdrawOn: boolean; transferOn: boolean };
 
@@ -58,7 +57,11 @@ export function MeScreen() {
   }
 
   async function installApp() {
-    await promptInstall();
+    if (canPromptInstall()) {
+      const ok = await promptInstall();
+      if (ok) return;
+    }
+    router.push("/app-download");
   }
 
   return (
@@ -138,7 +141,7 @@ export function MeScreen() {
               <InstallRowIcon />
             </span>
             <span className="flex-1">{t.appDownload}</span>
-            <InstallAppButton />
+            <span className="text-[12px] text-[#9ec6ff]">{t.install}</span>
           </button>
           <Menu href="/faq" icon={<FaqRowIcon />} label={t.faq} />
           <Menu href="/me/password" icon={<DotsIcon />} label={t.loginPassword} />
