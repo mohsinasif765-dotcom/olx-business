@@ -3,31 +3,22 @@ type InstallPrompt = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-type PwaWindow = Window & { __olxPwa?: InstallPrompt };
+type PwaWindow = Window & { __olxPwa?: InstallPrompt | null };
 
-let deferred: InstallPrompt | null = null;
-let listening = false;
-let swReady: Promise<ServiceWorkerRegistration | null> | null = null;
-
-function store(event: InstallPrompt) {
-  deferred = event;
-  if (typeof window !== "undefined") {
-    (window as PwaWindow).__olxPwa = event;
-  }
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("olx-install-ready"));
-  }
+function win() {
+  return typeof window !== "undefined" ? (window as PwaWindow) : null;
 }
 
-export function getDeferredInstall() {
-  return deferred || (typeof window !== "undefined" ? (window as PwaWindow).__olxPwa : undefined) || null;
+export function getDeferredInstall(): InstallPrompt | null {
+  const w = win();
+  const fromWindow = w?.__olxPwa;
+  if (fromWindow?.prompt) return fromWindow;
+  return null;
 }
 
 export function clearDeferredInstall() {
-  deferred = null;
-  if (typeof window !== "undefined") {
-    delete (window as PwaWindow).__olxPwa;
-  }
+  const w = win();
+  if (w) w.__olxPwa = null;
 }
 
 export function isStandaloneApp() {
@@ -53,7 +44,6 @@ export function isIosDevice() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
-/** Open the site in real Chrome — required when user opens from WhatsApp/Instagram. */
 export function openInChrome() {
   if (typeof window === "undefined") return;
   const url = window.location.href;
@@ -65,59 +55,50 @@ export function openInChrome() {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+/**
+ * Boot listener is also inlaid in layout (beforeInteractive) so we never miss
+ * beforeinstallprompt. This syncs the React module with that early capture.
+ */
 export function initPwaInstall() {
   if (typeof window === "undefined") return;
-  const existing = (window as PwaWindow).__olxPwa;
-  if (existing) deferred = existing;
-  if (listening) return;
-  listening = true;
+  const w = win()!;
+  if (w.__olxPwaBooted) return;
+  w.__olxPwaBooted = true;
 
-  // Must preventDefault so our Install button can open the home-screen dialog.
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
-    store(event as InstallPrompt);
+    w.__olxPwa = event as InstallPrompt;
+    window.dispatchEvent(new Event("olx-install-ready"));
   });
   window.addEventListener("appinstalled", () => {
     clearDeferredInstall();
+    window.dispatchEvent(new Event("olx-appinstalled"));
   });
+}
+
+declare global {
+  interface Window {
+    __olxPwa?: InstallPrompt | null;
+    __olxPwaBooted?: boolean;
+  }
 }
 
 export async function ensureServiceWorker() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
-  if (!swReady) {
-    swReady = (async () => {
-      try {
-        const reg = await navigator.serviceWorker.register("/sw.js", {
-          scope: "/",
-          updateViaCache: "none",
-        });
-        await reg.update().catch(() => undefined);
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: "SKIP_WAITING" });
-        }
-        if (!navigator.serviceWorker.controller) {
-          await new Promise<void>((resolve) => {
-            const done = () => {
-              navigator.serviceWorker.removeEventListener("controllerchange", done);
-              resolve();
-            };
-            navigator.serviceWorker.addEventListener("controllerchange", done);
-            window.setTimeout(resolve, 5000);
-          });
-        }
-        return reg;
-      } catch {
-        return null;
-      }
-    })();
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js", {
+      scope: "/",
+      updateViaCache: "none",
+    });
+    await reg.update().catch(() => undefined);
+    if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    return reg;
+  } catch {
+    return null;
   }
-  return swReady;
 }
 
-/**
- * Shows Chrome's native install dialog (adds icon to Home Screen).
- * Must be called directly from a tap — do not await long work before this.
- */
+/** Call only from a direct user tap/click. */
 export async function promptInstall() {
   initPwaInstall();
   if (isStandaloneApp()) return true;

@@ -1,60 +1,41 @@
-const CACHE = "olx-pwa-v7";
-const PRECACHE = ["/", "/app-icon-192.png", "/app-icon-512.png", "/apple-touch-icon.png", "/logo.png", "/manifest.webmanifest"];
+/* Minimal SW — fetch handler required for Chrome beforeinstallprompt */
+const CACHE = "olx-pwa-v8";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE);
-      await Promise.all(PRECACHE.map((url) => cache.add(url).catch(() => undefined)));
-      await self.skipWaiting();
-    })()
+    caches
+      .open(CACHE)
+      .then((cache) =>
+        cache.addAll(["/app-icon-192.png", "/app-icon-512.png", "/apple-touch-icon.png"]).catch(() => undefined)
+      )
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
-      await self.clients.claim();
-    })()
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
-
-  // Always network-first so installability + live content stay correct.
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.ok && event.request.destination === "document") {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => undefined);
-        }
-        return response;
-      })
-      .catch(() =>
-        caches.match(event.request).then(
-          (hit) =>
-            hit ||
-            caches.match("/").then(
-              (home) =>
-                home ||
-                new Response("OLX Business is offline.", {
-                  status: 503,
-                  headers: { "Content-Type": "text/plain" },
-                })
-            )
-        )
+    fetch(event.request).catch(() =>
+      caches.match(event.request).then(
+        (hit) =>
+          hit ||
+          new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } })
       )
+    )
   );
 });

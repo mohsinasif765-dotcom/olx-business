@@ -7,7 +7,6 @@ import {
   ensureServiceWorker,
   initPwaInstall,
   isInAppBrowser,
-  isIosDevice,
   isStandaloneApp,
   openInChrome,
   promptInstall,
@@ -37,16 +36,14 @@ export function InstallAppButton({
 
     const sync = () => setReady(canPromptInstall());
     sync();
-    const onReady = () => sync();
-    const onInstalled = () => setHidden(true);
-    window.addEventListener("olx-install-ready", onReady);
-    window.addEventListener("beforeinstallprompt", onReady);
-    window.addEventListener("appinstalled", onInstalled);
-    const timer = window.setInterval(sync, 1000);
+    window.addEventListener("olx-install-ready", sync);
+    window.addEventListener("beforeinstallprompt", sync);
+    window.addEventListener("olx-appinstalled", () => setHidden(true));
+    window.addEventListener("appinstalled", () => setHidden(true));
+    const timer = window.setInterval(sync, 800);
     return () => {
-      window.removeEventListener("olx-install-ready", onReady);
-      window.removeEventListener("beforeinstallprompt", onReady);
-      window.removeEventListener("appinstalled", onInstalled);
+      window.removeEventListener("olx-install-ready", sync);
+      window.removeEventListener("beforeinstallprompt", sync);
       window.clearInterval(timer);
     };
   }, []);
@@ -64,14 +61,11 @@ export function InstallAppButton({
         return;
       }
 
-      // prompt() must run in the same tap — no long awaits before this.
-      if (canPromptInstall()) {
-        const ok = await promptInstall();
-        if (ok) {
-          setHidden(true);
-          onHint?.(t.installHomeReady);
-          return;
-        }
+      const ok = await promptInstall();
+      if (ok) {
+        setHidden(true);
+        onHint?.(t.installHomeReady);
+        return;
       }
 
       onHint?.(ready ? t.installTapPrompt : t.installWaitNetwork);
@@ -87,6 +81,7 @@ export function InstallAppButton({
       className={`pwa-install-btn${ready ? " is-ready" : ""}`}
       onClick={(e) => void onInstall(e)}
       disabled={busy}
+      title={ready ? t.installTapPrompt : t.installWaitNetwork}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
@@ -97,7 +92,7 @@ export function InstallAppButton({
           strokeLinejoin="round"
         />
       </svg>
-      {busy ? "…" : t.install}
+      {busy ? "…" : ready ? t.installNow : t.install}
     </button>
   );
 }

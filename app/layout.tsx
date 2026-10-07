@@ -36,8 +36,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full">
       <body className="min-h-full">
-        <Script id="olx-sw-early" strategy="beforeInteractive">
-          {`try{if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js",{scope:"/",updateViaCache:"none"})}}catch(e){}`}
+        <Script id="olx-pwa-boot" strategy="beforeInteractive">
+          {`(function(){try{window.__olxPwa=window.__olxPwa||null;window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__olxPwa=e;try{window.dispatchEvent(new Event("olx-install-ready"))}catch(_){}});window.addEventListener("appinstalled",function(){window.__olxPwa=null});window.__olxPwaBooted=true;if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js",{scope:"/",updateViaCache:"none"}).catch(function(){})}}catch(e){}})();`}
         </Script>
         <LanguageProvider>
           {children}
