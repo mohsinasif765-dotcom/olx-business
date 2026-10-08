@@ -1,5 +1,5 @@
 /* OLX Business service worker — keep fetch handler for Chromium installability */
-const CACHE = "olx-pwa-v9";
+const CACHE = "olx-pwa-v10";
 const PRECACHE = ["/app-icon-192.png", "/app-icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {

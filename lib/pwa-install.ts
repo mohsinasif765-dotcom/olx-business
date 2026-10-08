@@ -81,10 +81,9 @@ export function getInstallBlockReason(): InstallBlockReason {
 }
 
 /**
- * Capture beforeinstallprompt as early as possible.
- * preventDefault is required so our Install button can call prompt() later.
- * Chrome desktop omnibox install remains available; Android mini-infobar is suppressed
- * in favor of our explicit Install control.
+ * On Android: do NOT preventDefault — Chrome must keep its Install banner /
+ * Add to Home screen path so the icon can appear on the phone.
+ * On desktop: preventDefault so our Install button owns the prompt.
  */
 export function initPwaInstall() {
   if (typeof window === "undefined") return;
@@ -92,14 +91,17 @@ export function initPwaInstall() {
   window.__olxPwaBooted = true;
 
   window.addEventListener("beforeinstallprompt", (event) => {
-    event.preventDefault();
+    const android = isAndroidDevice();
+    if (!android) {
+      event.preventDefault();
+    }
     window.__olxPwa = event as InstallPrompt;
-    logPwa("beforeinstallprompt captured — Install is ready");
+    logPwa(android ? "beforeinstallprompt (Android native UI kept)" : "beforeinstallprompt captured");
     window.dispatchEvent(new Event("olx-install-ready"));
   });
   window.addEventListener("appinstalled", () => {
     clearDeferredInstall();
-    logPwa("appinstalled");
+    logPwa("appinstalled — icon should be on home screen / app drawer");
     window.dispatchEvent(new Event("olx-appinstalled"));
   });
 }

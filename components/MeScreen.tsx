@@ -14,9 +14,7 @@ import {
   canPromptInstall,
   ensureServiceWorker,
   initPwaInstall,
-  isDesktopChromium,
   isInAppBrowser,
-  isIosDevice,
   isStandaloneApp,
   openInChrome,
   promptInstall,
@@ -36,19 +34,14 @@ export function MeScreen() {
   const [showAccount, setShowAccount] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [installHint, setInstallHint] = useState("");
-  const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [inAppBrowser, setInAppBrowser] = useState(false);
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
-  const [desktopChrome, setDesktopChrome] = useState(false);
-  const [iosDevice, setIosDevice] = useState(false);
 
   useEffect(() => {
     initPwaInstall();
     void ensureServiceWorker();
     setInAppBrowser(isInAppBrowser());
     setAlreadyInstalled(isStandaloneApp());
-    setDesktopChrome(isDesktopChromium());
-    setIosDevice(isIosDevice());
     const session = getSessionAccount();
     setAccount(session);
     const qs = session ? `?account=${encodeURIComponent(session)}` : "";
@@ -87,7 +80,6 @@ export function MeScreen() {
     if (isInAppBrowser()) {
       setInAppBrowser(true);
       setInstallHint(t.installOpenInBrowser);
-      setShowInstallGuide(true);
       openInChrome();
       return;
     }
@@ -96,33 +88,15 @@ export function MeScreen() {
       const result = await promptInstall();
       if (result.ok) {
         setInstallHint(t.installHomeReady);
-        setShowInstallGuide(false);
         setAlreadyInstalled(true);
-        return;
-      }
-      if (result.reason === "dismissed") {
-        setInstallHint(t.installTapPrompt);
-        return;
       }
     }
-    if (desktopChrome) {
-      setInstallHint(t.installDesktopHint);
-    } else {
-      setInstallHint(canPromptInstall() ? t.installTapPrompt : t.installWaitNetwork);
-    }
-    setShowInstallGuide(true);
   }
-
-  const installSteps = iosDevice
-    ? [t.installIosHint, t.install2, t.install3]
-    : desktopChrome
-      ? [t.install1Desktop, t.install2Desktop, t.install3Desktop]
-      : [t.install1, t.install2, t.install3];
 
   return (
     <div className="star-field">
       <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
-        <header className="anim-up mb-4 flex items-center justify-between">
+        <header className="me-topbar anim-up flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <BrandLogo size={36} />
             <span className="truncate text-[16px] font-semibold text-white">{siteName}</span>
@@ -196,35 +170,17 @@ export function MeScreen() {
               <InstallRowIcon />
             </span>
             <span className="flex-1">{t.appDownload}</span>
-            {!alreadyInstalled ? (
-              <InstallAppButton
-                onHint={setInstallHint}
-                onGuide={() => setShowInstallGuide(true)}
-              />
-            ) : null}
+            {!alreadyInstalled ? <InstallAppButton onHint={setInstallHint} /> : null}
           </button>
           {inAppBrowser ? (
             <p className="border-t border-[#ffd27a]/20 bg-[#ffd27a]/10 px-4 py-3 text-[12px] leading-5 text-[#ffd27a]">
               {t.installOpenInBrowser}
             </p>
           ) : null}
-          {installHint && !showInstallGuide ? (
+          {installHint ? (
             <p className="border-t border-white/8 bg-black/20 px-4 py-3 text-[12px] leading-5 text-[#9ec6ff]">
               {installHint}
             </p>
-          ) : null}
-          {showInstallGuide && !alreadyInstalled ? (
-            <div className="border-t border-white/8 bg-black/25 px-4 py-3">
-              <p className="text-[12px] font-semibold text-[#3dff9a]">{t.installTitle}</p>
-              <p className="mt-1 text-[11px] leading-4 text-white/55">{t.installWhyManual}</p>
-              <ol className="mt-2 space-y-1.5 text-[12px] leading-5 text-[#9ec6ff]">
-                {installSteps.map((step, i) => (
-                  <li key={i}>
-                    {i + 1}. {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
           ) : null}
           <Menu href="/faq" icon={<FaqRowIcon />} label={t.faq} />
           <Menu href="/me/password" icon={<DotsIcon />} label={t.loginPassword} />

@@ -7,7 +7,7 @@ import {
   ensureServiceWorker,
   getInstallBlockReason,
   initPwaInstall,
-  isDesktopChromium,
+  isAndroidDevice,
   isInAppBrowser,
   isStandaloneApp,
   openInChrome,
@@ -17,11 +17,9 @@ import {
 export function InstallAppButton({
   stopRowClick = true,
   onHint,
-  onGuide,
 }: {
   stopRowClick?: boolean;
   onHint?: (message: string) => void;
-  onGuide?: () => void;
 }) {
   const { t } = useLanguage();
   const [hidden, setHidden] = useState(false);
@@ -40,7 +38,10 @@ export function InstallAppButton({
     sync();
     window.addEventListener("olx-install-ready", sync);
     window.addEventListener("beforeinstallprompt", sync);
-    const onInstalled = () => setHidden(true);
+    const onInstalled = () => {
+      setHidden(true);
+      onHint?.(t.installHomeReady);
+    };
     window.addEventListener("olx-appinstalled", onInstalled);
     window.addEventListener("appinstalled", onInstalled);
     const timer = window.setInterval(sync, 1000);
@@ -51,6 +52,7 @@ export function InstallAppButton({
       window.removeEventListener("appinstalled", onInstalled);
       window.clearInterval(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- install listeners once per mount
   }, []);
 
   if (hidden) return null;
@@ -61,12 +63,10 @@ export function InstallAppButton({
     try {
       if (isInAppBrowser()) {
         onHint?.(t.installOpenInBrowser);
-        onGuide?.();
         openInChrome();
         return;
       }
 
-      // prompt() must run in the same user gesture — no awaits before this when ready.
       if (canPromptInstall()) {
         const result = await promptInstall();
         if (result.ok) {
@@ -74,25 +74,17 @@ export function InstallAppButton({
           onHint?.(t.installHomeReady);
           return;
         }
-        if (result.reason === "dismissed") {
-          onHint?.(t.installTapPrompt);
-          return;
-        }
+        if (result.reason === "dismissed") return;
       }
 
-      const reason = getInstallBlockReason();
-      if (typeof console !== "undefined") {
-        console.info("[olx-pwa] Install click without prompt", reason);
-      }
-
-      if (isDesktopChromium()) {
-        onHint?.(t.installDesktopHint);
-      } else if (reason === "waiting-for-prompt") {
-        onHint?.(t.installWaitNetwork);
-      } else {
+      // Android: Chrome may show its own Install bar — keep a one-line tip only.
+      if (isAndroidDevice()) {
         onHint?.(t.installAndroidHint);
       }
-      onGuide?.();
+
+      if (typeof console !== "undefined") {
+        console.info("[olx-pwa] Install click without prompt", getInstallBlockReason());
+      }
     } finally {
       setBusy(false);
     }
@@ -104,7 +96,6 @@ export function InstallAppButton({
       className={`pwa-install-btn${ready ? " is-ready" : ""}`}
       onClick={(e) => void onInstall(e)}
       disabled={busy}
-      title={ready ? t.installTapPrompt : t.installWaitNetwork}
       data-pwa-ready={ready ? "1" : "0"}
       data-pwa-reason={getInstallBlockReason()}
     >

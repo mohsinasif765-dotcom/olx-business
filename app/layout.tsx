@@ -36,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className="h-full">
       <body className="min-h-full">
         <Script id="olx-pwa-boot" strategy="beforeInteractive">
-          {`(function(){try{window.__olxPwa=window.__olxPwa||null;window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__olxPwa=e;try{console.info("[olx-pwa] beforeinstallprompt captured");window.dispatchEvent(new Event("olx-install-ready"))}catch(_){}});window.addEventListener("appinstalled",function(){window.__olxPwa=null});window.__olxPwaBooted=true;if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js",{scope:"/",updateViaCache:"none"}).then(function(r){try{r.update();console.info("[olx-pwa] sw registered",r.scope)}catch(_){}}).catch(function(err){console.info("[olx-pwa] sw register failed",err)})}}catch(e){}})();`}
+          {`(function(){try{window.__olxPwa=window.__olxPwa||null;window.addEventListener("beforeinstallprompt",function(e){var android=/Android/i.test(navigator.userAgent);if(!android){e.preventDefault()}window.__olxPwa=e;try{console.info("[olx-pwa] beforeinstallprompt",android?"android-native":"desktop");window.dispatchEvent(new Event("olx-install-ready"))}catch(_){}});window.addEventListener("appinstalled",function(){window.__olxPwa=null});window.__olxPwaBooted=true;if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js",{scope:"/",updateViaCache:"none"}).then(function(r){try{r.update()}catch(_){}}).catch(function(){})}}catch(e){}})();`}
         </Script>
         <LanguageProvider>
           {children}
