@@ -56,8 +56,8 @@ export function VipScreen() {
 
   return (
     <div className="star-field">
-      <div className="mx-auto min-h-screen w-full max-w-[430px] px-4 pb-32 pt-3">
-        <header className="relative mb-4 flex items-center justify-between">
+      <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-32 pt-3">
+        <header className="app-topbar mb-4 flex items-center justify-between">
           <Link href="/home" className="flex items-center gap-2">
             <BrandLogo size={42} />
             <span className="text-[17px] font-semibold">{settings.siteName}</span>

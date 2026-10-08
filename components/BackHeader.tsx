@@ -11,7 +11,7 @@ export function BackHeader({
   right?: ReactNode;
 }) {
   return (
-    <header className="mb-5 flex items-center justify-between">
+    <header className="app-topbar mb-5 flex items-center justify-between">
       <Link
         href={href}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg"

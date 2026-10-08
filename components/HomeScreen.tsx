@@ -96,7 +96,7 @@ export function HomeScreen() {
   return (
     <div id="app" className="star-field">
       <div className="app-main page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
-        <header className="relative mb-4 flex items-center justify-between">
+        <header className="app-topbar mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BrandLogo size={42} />
             <span className="text-[17px] font-semibold text-white">{siteName}</span>

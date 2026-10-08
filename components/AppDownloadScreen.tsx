@@ -9,54 +9,30 @@ import {
   clearDeferredInstall,
   ensureServiceWorker,
   initPwaInstall,
-  isAndroidDevice,
   isInAppBrowser,
-  isIosDevice,
   isStandaloneApp,
   openInChrome,
   promptInstall,
 } from "@/lib/pwa-install";
 
-function detectPlatform() {
-  if (isIosDevice()) return "ios" as const;
-  if (isAndroidDevice()) return "android" as const;
-  return "other" as const;
-}
-
 export function AppDownloadScreen() {
   const { t } = useLanguage();
   const [installed, setInstalled] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [canPrompt, setCanPrompt] = useState(false);
-  const [platform, setPlatform] = useState<"ios" | "android" | "other">("other");
   const [inApp, setInApp] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     initPwaInstall();
     void ensureServiceWorker();
     setInstalled(isStandaloneApp());
-    setPlatform(detectPlatform());
     setInApp(isInAppBrowser());
-    setCanPrompt(canPromptInstall());
 
     const onInstalled = () => {
       setInstalled(true);
-      setShowGuide(false);
       clearDeferredInstall();
     };
-    const onPrompt = () => setCanPrompt(true);
     window.addEventListener("appinstalled", onInstalled);
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("olx-install-ready", onPrompt);
-    const timer = window.setInterval(() => setCanPrompt(canPromptInstall()), 700);
-
-    return () => {
-      window.removeEventListener("appinstalled", onInstalled);
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      window.removeEventListener("olx-install-ready", onPrompt);
-      window.clearInterval(timer);
-    };
+    return () => window.removeEventListener("appinstalled", onInstalled);
   }, []);
 
   async function install() {
@@ -65,27 +41,17 @@ export function AppDownloadScreen() {
     try {
       if (isInAppBrowser()) {
         setInApp(true);
-        setShowGuide(true);
         openInChrome();
         return;
       }
       if (canPromptInstall()) {
         const result = await promptInstall();
-        if (result.ok) {
-          setInstalled(true);
-          return;
-        }
+        if (result.ok) setInstalled(true);
       }
-      setShowGuide(true);
     } finally {
       setBusy(false);
     }
   }
-
-  const steps =
-    platform === "ios"
-      ? [t.installIosHint, t.install2, t.install3]
-      : [t.installAndroidHint, t.install2, t.install3];
 
   return (
     <div className="star-field">
@@ -128,21 +94,6 @@ export function AppDownloadScreen() {
           <p className="mt-4 rounded-xl border border-[#3dff9a]/25 bg-[#3dff9a]/10 px-3 py-3 text-center text-[13px] leading-5 text-[#3dff9a]">
             {t.installHomeReady}
           </p>
-        ) : (
-          <p className="mt-3 text-center text-[12px] leading-5 text-white/50">{t.installHomeAfter}</p>
-        )}
-
-        {!installed && (showGuide || !canPrompt) ? (
-          <div className="deposit-card mt-5 space-y-3 p-4">
-            <p className="text-[13px] font-semibold text-[#3dff9a]">{t.installTitle}</p>
-            <ol className="space-y-2 text-[12px] leading-5 text-white/80">
-              {steps.map((step, i) => (
-                <li key={i}>
-                  {i + 1}. {step}
-                </li>
-              ))}
-            </ol>
-          </div>
         ) : null}
       </div>
     </div>
