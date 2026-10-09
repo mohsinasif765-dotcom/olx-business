@@ -6,6 +6,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { useLanguage } from "@/lib/i18n";
 import { moneyPrefix } from "@/lib/currencies";
+import { readFundCurrency, rememberFundCurrency } from "@/lib/display-currency";
 import { inviteLink } from "@/lib/invite";
 import { getSessionAccount } from "@/lib/session";
 import { loadWallets } from "@/lib/wallets";
@@ -24,7 +25,7 @@ export function HomeScreen() {
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
   const [siteName, setSiteName] = useState("OLX Business");
   const [stats, setStats] = useState({ users: 0, revenue: 0 });
-  const [currency, setCurrency] = useState("PKR");
+  const [currency, setCurrency] = useState(() => readFundCurrency() || "PKR");
   const [usdtToPkrRate, setUsdtToPkrRate] = useState(280);
   const cash = moneyPrefix(currency);
   const totalAssets = wallets.invest + wallets.brokerage;
@@ -36,8 +37,13 @@ export function HomeScreen() {
   useEffect(() => {
     const account = getSessionAccount();
     setLoggedIn(Boolean(account));
+    const saved = readFundCurrency();
+    if (saved) setCurrency(saved);
     const origin = window.location.origin;
-    const qs = account ? `?account=${encodeURIComponent(account)}` : "";
+    const params = new URLSearchParams();
+    if (account) params.set("account", account);
+    if (saved) params.set("prefer", saved);
+    const qs = params.toString() ? `?${params}` : "";
     void fetch(`/api/home${qs}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: {
@@ -54,7 +60,11 @@ export function HomeScreen() {
           return;
         }
         if (data.siteName) setSiteName(data.siteName);
-        if (data.displayCurrency) setCurrency(String(data.displayCurrency).toUpperCase());
+        if (data.displayCurrency) {
+          const code = String(data.displayCurrency).toUpperCase();
+          setCurrency(code);
+          rememberFundCurrency(code);
+        }
         if (data.usdtToPkrRate) setUsdtToPkrRate(Number(data.usdtToPkrRate) || 280);
         setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
         const incoming = Array.isArray(data.logs) ? data.logs : [];

@@ -86,6 +86,22 @@ export async function readSite() {
     walletMode,
     displayCurrency,
     usdtToPkrRate,
+    about: {
+      tagline: String(settings?.aboutTagline || ""),
+      body: String(settings?.aboutBody || ""),
+      step1: String(settings?.aboutStep1 || ""),
+      step2: String(settings?.aboutStep2 || ""),
+      step3: String(settings?.aboutStep3 || ""),
+      version: String(settings?.aboutVersion || "Version 1.0"),
+      companyName: String(settings?.companyName || "OLX Business Digital Ltd"),
+      companyAddress: String(
+        settings?.companyAddress ||
+          "Office 2208, Bay View Tower, Business Bay, Dubai, United Arab Emirates",
+      ),
+      companyNo: String(settings?.companyNo || "OB-2026-8841"),
+      companyRegDate: String(settings?.companyRegDate || "12 Jan 2026"),
+      companyIssued: String(settings?.companyIssued || "05 Oct 2026"),
+    },
     flags: {
       rechargeOn: settings?.rechargeOn !== false,
       withdrawOn: settings?.withdrawOn !== false,

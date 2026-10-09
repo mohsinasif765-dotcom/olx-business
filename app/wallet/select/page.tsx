@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { BackHeader } from "@/components/BackHeader";
 import { CurrencyFlag } from "@/components/CurrencyFlag";
+import { rememberFundCurrency } from "@/lib/display-currency";
 import { fetchContent } from "@/lib/fetch-content";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
@@ -82,7 +83,11 @@ function RechargeSelect() {
                       </p>
                     </div>
                   </div>
-                  <Link href={href} className="car-invest mt-4">
+                  <Link
+                    href={href}
+                    className="car-invest mt-4"
+                    onClick={() => rememberFundCurrency(coin.name || coin.id)}
+                  >
                     {t.continuePay}
                   </Link>
                 </article>

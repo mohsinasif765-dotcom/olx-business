@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         account: "",
         name: "",
+        avatarUrl: "",
         vip: "—",
         invite: "",
         invest: 0,
@@ -41,36 +42,48 @@ export async function GET(request: Request) {
     const [first, deposits, coins, settings] = await Promise.all([
       zuvoAdmin()
         .from("members")
-        .select("account,vip,invite,invest,brokerage,status,name")
+        .select("account,vip,invite,invest,brokerage,status,name,avatar_url")
         .eq("account", account)
         .maybeSingle(),
       zuvoAdmin()
         .from("recharges")
-        .select("network,status,at")
+        .select("id,network,status,at")
         .eq("account", account)
         .order("at", { ascending: false })
-        .limit(30),
+        .limit(50),
       readCoins(),
       readSettings(),
     ]);
     const row = first.error
       ? await zuvoAdmin()
           .from("members")
-          .select("account,vip,invite,invest,brokerage,status")
+          .select("account,vip,invite,invest,brokerage,status,name")
           .eq("account", account)
           .maybeSingle()
       : first;
     if (row.error) return NextResponse.json({ error: row.error.message }, { status: 500 });
-    const data = row.data as { account?: string; vip?: string; invite?: string; invest?: number; brokerage?: number; status?: string; name?: string } | null;
+    const data = row.data as {
+      account?: string;
+      vip?: string;
+      invite?: string;
+      invest?: number;
+      brokerage?: number;
+      status?: string;
+      name?: string;
+      avatar_url?: string;
+    } | null;
     const acc = data?.account || account;
+    const prefer = (new URL(request.url).searchParams.get("prefer") || "").trim();
     const displayCurrency = resolveMemberDisplayCurrency({
       coins,
       walletMode: settings?.walletMode ?? site.walletMode,
-      deposits: (deposits.data || []) as { network?: string; status?: string }[],
+      deposits: (deposits.data || []) as { id?: string; network?: string; status?: string; at?: string }[],
+      prefer,
     });
     return NextResponse.json({
       account: acc,
       name: displayName(data?.name, acc),
+      avatarUrl: String(data?.avatar_url || ""),
       vip: data?.vip || "—",
       invite: data?.invite || "",
       invest: money(data?.invest),

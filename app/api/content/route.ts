@@ -18,6 +18,7 @@ export async function GET() {
         walletMode: site.walletMode,
         displayCurrency: site.displayCurrency,
         usdtToPkrRate: site.usdtToPkrRate,
+        about: site.about,
       },
       { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
     );

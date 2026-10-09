@@ -237,31 +237,54 @@ export function normalizeCurrencyCode(raw: unknown): string {
   return token.slice(0, 8);
 }
 
-type DepositLike = { network?: string; status?: string };
+type DepositLike = { id?: string; network?: string; status?: string; at?: string };
+
+function depositRank(row: DepositLike) {
+  const status = String(row.status || "").toLowerCase();
+  if (/^(approved|done|success|credited|complete|paid)/.test(status)) return 3;
+  if (status === "pending") return 2;
+  if (status === "rejected") return 0;
+  return 1;
+}
+
+function depositTime(row: DepositLike) {
+  const t = Date.parse(String(row.at || ""));
+  if (Number.isFinite(t)) return t;
+  const id = String(row.id || "");
+  const digits = id.replace(/\D/g, "");
+  return digits ? Number(digits.slice(-12)) || 0 : 0;
+}
 
 /**
- * Currency for a member's home balance: latest approved deposit, else latest
- * non-rejected deposit, else fallback (admin wallet mode).
+ * Currency for home balance: latest paid/approved fund, else latest pending fund,
+ * else admin walletMode fallback.
  */
 export function currencyFromMemberDeposits(rows: DepositLike[] | undefined | null, fallback: string): string {
-  const list = (rows || []).filter((row) => String(row.status || "").toLowerCase() !== "rejected");
+  const list = (rows || [])
+    .filter((row) => depositRank(row) > 0)
+    .sort((a, b) => {
+      const rank = depositRank(b) - depositRank(a);
+      if (rank !== 0) return rank;
+      return depositTime(b) - depositTime(a);
+    });
   if (!list.length) return fallback;
-  const approved = list.filter((row) =>
-    /^(approved|done|success|credited|complete|paid)/i.test(String(row.status || "").trim())
-  );
-  const pool = approved.length ? approved : list;
-  const code = normalizeCurrencyCode(pool[0]?.network);
+  const code = normalizeCurrencyCode(list[0]?.network);
   return code || fallback;
 }
 
-/** Single resolver: deposits when present, else admin walletMode. */
+/** Single resolver: fund/invest currency from deposits, else admin walletMode. */
 export function resolveMemberDisplayCurrency(opts: {
   coins?: CurrencyRow[] | null;
   walletMode?: unknown;
   deposits?: DepositLike[] | null;
+  prefer?: string | null;
 }): string {
   const fallback = pickDisplayCurrency(opts.coins, opts.walletMode);
-  return currencyFromMemberDeposits(opts.deposits, fallback);
+  const fromDeposits = currencyFromMemberDeposits(opts.deposits, "");
+  if (fromDeposits) return fromDeposits;
+  const prefer = normalizeCurrencyCode(opts.prefer);
+  if (prefer) return prefer;
+  return fallback;
 }
 
 /** Prefix shown before amounts on Home / Team. */

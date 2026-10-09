@@ -26,6 +26,7 @@ create table if not exists public.members (
 );
 
 alter table public.members add column if not exists name text not null default '';
+alter table public.members add column if not exists avatar_url text not null default '';
 
 create table if not exists public.ops_snapshot (
   id int primary key default 1 check (id = 1),
@@ -95,6 +96,17 @@ create table if not exists public.site_settings (
   commission_l3 numeric not null default 1,
   wallet_mode text not null default 'pkr',
   usdt_to_pkr_rate numeric not null default 280,
+  about_tagline text not null default '',
+  about_body text not null default '',
+  about_step1 text not null default '',
+  about_step2 text not null default '',
+  about_step3 text not null default '',
+  about_version text not null default 'Version 1.0',
+  company_name text not null default 'OLX Business Digital Ltd',
+  company_address text not null default 'Office 2208, Bay View Tower, Business Bay, Dubai, United Arab Emirates',
+  company_no text not null default 'OB-2026-8841',
+  company_reg_date text not null default '12 Jan 2026',
+  company_issued text not null default '05 Oct 2026',
   updated_at timestamptz not null default now()
 );
 

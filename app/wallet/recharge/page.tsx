@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { rememberFundCurrency } from "@/lib/display-currency";
 import { fetchContent } from "@/lib/fetch-content";
 import { getCoin } from "@/lib/coins";
 import { type CurrencyRow, isCryptoId, payDestination } from "@/lib/currencies";
@@ -82,6 +83,7 @@ function RechargeDetail() {
             symbol: row.name || row.id.toUpperCase(),
             payKind: row.payKind || (isCryptoId(row.id) ? "crypto" : "bank"),
           });
+          rememberFundCurrency(row.name || row.id);
         }
       })
       .catch(() => {});
@@ -172,6 +174,7 @@ function RechargeDetail() {
     };
     const prev = JSON.parse(window.localStorage.getItem("olx-recharge-history") || "[]") as HistoryItem[];
     window.localStorage.setItem("olx-recharge-history", JSON.stringify([item, ...prev].slice(0, 20)));
+    rememberFundCurrency(asset.name || asset.symbol || asset.id);
     await postLedger({
       kind: "recharges",
       amount: Number(amount),

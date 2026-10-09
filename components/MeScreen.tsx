@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ChangeEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InstallAppButton } from "@/components/InstallAppButton";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
@@ -27,6 +27,7 @@ export function MeScreen() {
   const router = useRouter();
   const [account, setAccount] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [vip, setVip] = useState("Member");
   const [siteName, setSiteName] = useState("OLX Business");
   const [telegram, setTelegram] = useState(TELEGRAM_HELP);
@@ -34,8 +35,11 @@ export function MeScreen() {
   const [showAccount, setShowAccount] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [installHint, setInstallHint] = useState("");
+  const [photoHint, setPhotoHint] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [inAppBrowser, setInAppBrowser] = useState(false);
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     initPwaInstall();
@@ -50,6 +54,7 @@ export function MeScreen() {
       .then((data: {
         account?: string;
         name?: string;
+        avatarUrl?: string;
         vip?: string;
         siteName?: string;
         telegram?: string;
@@ -58,6 +63,7 @@ export function MeScreen() {
         if (!data) return;
         if (data.account) setAccount(data.account);
         if (data.name) setName(data.name);
+        if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
         setVip(data.vip && data.vip !== "—" ? data.vip : "Member");
         if (data.siteName) setSiteName(data.siteName);
         if (data.telegram) setTelegram(data.telegram);
@@ -65,6 +71,39 @@ export function MeScreen() {
       })
       .catch(() => {});
   }, []);
+
+  async function onPickPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !account || uploadingPhoto) return;
+    if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+      setPhotoHint(t.photoFailed);
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setPhotoHint(t.photoFailed);
+      return;
+    }
+    setUploadingPhoto(true);
+    setPhotoHint(t.photoUploading);
+    try {
+      const body = new FormData();
+      body.set("account", account);
+      body.set("file", file);
+      const res = await fetch("/api/me/avatar", { method: "POST", body });
+      const data = (await res.json()) as { avatarUrl?: string; error?: string };
+      if (!res.ok || !data.avatarUrl) {
+        setPhotoHint(t.photoFailed);
+        return;
+      }
+      setAvatarUrl(data.avatarUrl);
+      setPhotoHint(t.photoUpdated);
+    } catch {
+      setPhotoHint(t.photoFailed);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
 
   function logout() {
     setLoggingOut(true);
@@ -110,28 +149,62 @@ export function MeScreen() {
         </header>
 
         {account ? (
-          <section className="me-user anim-up delay-1 mb-3 flex items-center gap-3 px-4 py-3.5">
-            <div className="me-avatar">
-              <UserIcon />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-semibold tracking-wide">
-                {name || displayName("", account)}
-              </p>
-              <p className="mt-0.5 min-w-0 truncate text-[12px] text-white/55">
-                {showAccount ? account : maskAccount(account)}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="me-eye"
-              aria-label={showAccount ? "Hide number" : "Show number"}
-              onClick={() => setShowAccount((open) => !open)}
-            >
-              {showAccount ? <EyeOffIcon /> : <EyeIcon />}
-            </button>
-            <span className="me-vip">{vip}</span>
-          </section>
+          <>
+            <section className="me-user anim-up delay-1 mb-3 flex items-center gap-3 px-4 py-3.5">
+              <button
+                type="button"
+                className="me-avatar me-avatar-btn"
+                aria-label={t.changePhoto}
+                disabled={uploadingPhoto}
+                onClick={() => fileRef.current?.click()}
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="" className="me-avatar-img" />
+                ) : (
+                  <UserIcon />
+                )}
+                <span className="me-avatar-cam" aria-hidden>
+                  <CameraIcon />
+                </span>
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => void onPickPhoto(e)}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-semibold tracking-wide">
+                  {name || displayName("", account)}
+                </p>
+                <p className="mt-0.5 min-w-0 truncate text-[12px] text-white/55">
+                  {showAccount ? account : maskAccount(account)}
+                </p>
+                <button
+                  type="button"
+                  className="mt-1 text-[11px] font-medium text-[#9ec6ff]"
+                  disabled={uploadingPhoto}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {uploadingPhoto ? t.photoUploading : t.changePhoto}
+                </button>
+              </div>
+              <button
+                type="button"
+                className="me-eye"
+                aria-label={showAccount ? "Hide number" : "Show number"}
+                onClick={() => setShowAccount((open) => !open)}
+              >
+                {showAccount ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+              <span className="me-vip">{vip}</span>
+            </section>
+            {photoHint ? (
+              <p className="mb-3 px-1 text-[12px] text-[#9ec6ff]">{photoHint}</p>
+            ) : null}
+          </>
         ) : (
           <Link
             href="/"
@@ -160,11 +233,13 @@ export function MeScreen() {
               </span>
               <span>{t.telegram}</span>
             </a>
+            <Tool href="/support" label={t.support} icon={<HeadsetIcon />} />
             <Tool href="/team" label={t.team} icon={<TeamIcon />} />
           </div>
         </section>
 
         <section className="me-menu anim-up delay-3 mb-5 overflow-hidden">
+          <Menu href="/support" icon={<HeadsetIcon />} label={t.contactService} />
           <button type="button" className="me-row w-full text-left" onClick={() => void installApp()}>
             <span className="me-row-icon">
               <InstallRowIcon />
@@ -185,7 +260,6 @@ export function MeScreen() {
           <Menu href="/faq" icon={<FaqRowIcon />} label={t.faq} />
           <Menu href="/me/password" icon={<DotsIcon />} label={t.loginPassword} />
           <Menu href="/me/security" icon={<ShieldIcon />} label={t.securityPassword} />
-          <Menu href="/support" icon={<HeadsetIcon />} label={t.contactService} />
           <Menu href="/about" icon={<InfoIcon />} label={t.aboutUs} last />
         </section>
 
@@ -266,6 +340,15 @@ function UserIcon() {
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="8.4" r="3.3" stroke="#b9d4ff" strokeWidth="1.7" />
       <path d="M5.2 18.4c1.3-3.1 3.7-4.6 6.8-4.6s5.5 1.5 6.8 4.6" stroke="#b9d4ff" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 8h3l2-2h6l2 2h3v11H4V8z" />
+      <circle cx="12" cy="13" r="3.2" />
     </svg>
   );
 }

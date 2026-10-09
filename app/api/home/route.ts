@@ -52,18 +52,22 @@ export async function GET(request: Request) {
       account
         ? db
             .from("recharges")
-            .select("network,status,at")
+            .select("id,network,status,at")
             .eq("account", account)
             .order("at", { ascending: false })
-            .limit(30)
+            .limit(50)
         : Promise.resolve({ data: null, error: null }),
     ]);
     if (mine.error) return NextResponse.json({ error: mine.error.message }, { status: 500 });
 
+    const prefer = (new URL(request.url).searchParams.get("prefer") || "").trim();
     const displayCurrency = resolveMemberDisplayCurrency({
       coins,
       walletMode: settings?.walletMode,
-      deposits: account ? ((deposits.data || []) as { network?: string; status?: string }[]) : null,
+      deposits: account
+        ? ((deposits.data || []) as { id?: string; network?: string; status?: string; at?: string }[])
+        : null,
+      prefer,
     });
     const walletMode = settings?.walletMode || "pkr";
     const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
