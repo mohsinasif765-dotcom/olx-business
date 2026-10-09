@@ -810,7 +810,12 @@ button:active,
 
 .wd-menu {
   margin-top: 8px;
-  overflow: hidden;
+  max-height: min(280px, 45vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   border-radius: 12px;
   border: 1px solid rgba(160, 185, 255, 0.16);
   background: rgba(12, 24, 72, 0.98);

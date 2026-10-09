@@ -1,5 +1,6 @@
+import { resolveMemberDisplayCurrency } from "@/lib/currencies";
 import { zuvoAdmin } from "@/lib/zuvo";
-import { readRecharges, readSettings, readWithdraws } from "@/lib/server/db-tables";
+import { readCoins, readRecharges, readSettings, readWithdraws } from "@/lib/server/db-tables";
 
 export type TeamMember = {
   account: string;
@@ -73,13 +74,22 @@ function maskAccount(account: string) {
 
 export async function loadTeam(account: string, date = "", level?: string) {
   const db = zuvoAdmin();
-  const [{ data: members, error: memberError }, settings, rechargeRows, withdrawRows] = await Promise.all([
-    db.from("members").select("account,invite,upline,invest,brokerage,vip,status,joined"),
-    readSettings(),
-    readRecharges(),
-    readWithdraws(),
-  ]);
+  const [{ data: members, error: memberError }, settings, rechargeRows, withdrawRows, coins] =
+    await Promise.all([
+      db.from("members").select("account,invite,upline,invest,brokerage,vip,status,joined"),
+      readSettings(),
+      readRecharges(),
+      readWithdraws(),
+      readCoins(),
+    ]);
   if (memberError) throw memberError;
+  const myDeposits = rechargeRows.filter((row) => key(row.account) === key(account));
+  const displayCurrency = resolveMemberDisplayCurrency({
+    coins,
+    walletMode: settings?.walletMode,
+    deposits: myDeposits,
+  });
+  const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
 
   const rows: TeamMember[] = (members || []).map((row) => ({
     account: key(String(row.account)),
@@ -146,6 +156,8 @@ export async function loadTeam(account: string, date = "", level?: string) {
     invite: me.invite,
     brokerage: me.brokerage,
     siteName: settings?.siteName || "OLX Business",
+    displayCurrency,
+    usdtToPkrRate,
     rates,
     totals: {
       team: downlines.length,

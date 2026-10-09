@@ -1,5 +1,5 @@
 import { FAQ_ARTICLES } from "@/lib/faq";
-import { migrateCurrencies } from "@/lib/currencies";
+import { migrateCurrencies, normalizeWalletMode, pickDisplayCurrency } from "@/lib/currencies";
 import { stripDemoRows } from "@/lib/server/strip-demo";
 import {
   readActivities,
@@ -54,11 +54,38 @@ export async function readSite() {
           title: row.title,
           body: row.sections.flatMap((s) => [s.heading, ...s.body]).join("\n"),
         }));
+  const walletMode = normalizeWalletMode(settings?.walletMode);
+  const displayCurrency = pickDisplayCurrency(coins, walletMode);
+  const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
+  // Fund / withdraw rails: all enabled pay_rails (Trade FX payment-methods style).
+  // walletMode only drives display labels + Bank PKR estimate — not deposit list.
+  const liveCoins = migrateCurrencies(coins)
+    .filter((c) => c.enabled !== false)
+    .map((c) => ({
+      id: String(c.id),
+      name: String(c.name),
+      network: String(c.network || "Bank"),
+      min: String(c.min || "1"),
+      address: String(c.address || ""),
+      enabled: true,
+      payKind: c.payKind,
+      bankName: String(c.bankName || ""),
+      accountName: String(c.accountName || ""),
+      accountNumber: String(c.accountNumber || ""),
+      iban: String(c.iban || ""),
+      swift: String(c.swift || ""),
+      branch: String(c.branch || ""),
+      instructions: String(c.instructions || ""),
+    }));
+
   return {
     siteName: String(settings?.siteName || "OLX Business"),
     telegram,
     handle: telegramHandle(telegram),
     maintenance: String(settings?.maintenance || ""),
+    walletMode,
+    displayCurrency,
+    usdtToPkrRate,
     flags: {
       rechargeOn: settings?.rechargeOn !== false,
       withdrawOn: settings?.withdrawOn !== false,
@@ -75,24 +102,7 @@ export async function readSite() {
     cms,
     faqs: fallbackFaqs,
     notices: notices.filter((n) => n.enabled !== false),
-    coins: migrateCurrencies(coins)
-      .filter((c) => c.enabled !== false)
-      .map((c) => ({
-        id: String(c.id),
-        name: String(c.name),
-        network: String(c.network || "Bank"),
-        min: String(c.min || "1"),
-        address: String(c.address || ""),
-        enabled: true,
-        payKind: c.payKind,
-        bankName: String(c.bankName || ""),
-        accountName: String(c.accountName || ""),
-        accountNumber: String(c.accountNumber || ""),
-        iban: String(c.iban || ""),
-        swift: String(c.swift || ""),
-        branch: String(c.branch || ""),
-        instructions: String(c.instructions || ""),
-      })),
+    coins: liveCoins,
     activities: activities.filter((a) => a.enabled !== false),
     recharges: stripDemoRows(recharges),
     withdraws: stripDemoRows(withdraws),

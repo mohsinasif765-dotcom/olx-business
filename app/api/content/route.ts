@@ -15,6 +15,9 @@ export async function GET() {
         coins: site.coins,
         flags: site.flags,
         finance: site.finance,
+        walletMode: site.walletMode,
+        displayCurrency: site.displayCurrency,
+        usdtToPkrRate: site.usdtToPkrRate,
       },
       { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
     );

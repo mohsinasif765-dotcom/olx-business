@@ -169,7 +169,7 @@ function CheckInPanel({ rewards, disabled }: { rewards: string[]; disabled: bool
         }
         setStreak(data.streak || 0);
         setDone(true);
-        setMessage(`${t.claimedToday} +${Number(data.prize).toFixed(2)} USDT`);
+        setMessage(`${t.claimedToday} +${Number(data.prize).toFixed(2)}`);
         void loadWallets();
       })
       .catch(() => {});
@@ -279,7 +279,7 @@ function LuckyPanel({ prizes, disabled }: { prizes: string[]; disabled: boolean 
       </button>
       {prize ? (
         <p className="mt-3 text-[13px] text-[#3dff9a]">
-          {t.youWon} {prize} USDT
+          {t.youWon} Rs {prize}
         </p>
       ) : null}
     </div>

@@ -1,3 +1,4 @@
+import { normalizeHoldingImage } from "@/lib/holding-image";
 import { payTeamEarnings } from "@/lib/server/earnings";
 import {
   insertHolding,
@@ -31,7 +32,12 @@ function holdingImage(catalog: CatalogKind, planId: string, image: string) {
 
 export async function listHoldings(account?: string) {
   const [cars, shop] = await Promise.all([readHoldings(account), readShopHoldings(account)]);
-  return [...cars, ...shop].sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
+  return [...cars, ...shop]
+    .map((row) => ({
+      ...row,
+      image: normalizeHoldingImage(row),
+    }))
+    .sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
 }
 
 export async function buyPackage(input: { account: string; planId: string; catalog?: CatalogKind }) {

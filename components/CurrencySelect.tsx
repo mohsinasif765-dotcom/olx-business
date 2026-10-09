@@ -45,9 +45,9 @@ export function CurrencySelect({
         <span className="text-white/45">{open ? "▴" : "▾"}</span>
       </button>
       {open ? (
-        <ul className="wd-menu absolute z-30 max-h-64 w-full overflow-auto">
+        <ul className="wd-menu absolute z-40 w-full">
           {coins.map((c) => (
-            <li key={c.id}>
+            <li key={`${c.id}-${c.name}`}>
               <button
                 type="button"
                 className={`wd-option ${c.name === selected.name ? "is-on" : ""}`}

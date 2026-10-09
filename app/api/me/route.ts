@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { resolveMemberDisplayCurrency } from "@/lib/currencies";
 import { displayName } from "@/lib/member-name";
+import { readCoins, readSettings } from "@/lib/server/db-tables";
 import { readSite } from "@/lib/server/site";
 import { zuvoAdmin } from "@/lib/zuvo";
 
@@ -31,13 +33,26 @@ export async function GET(request: Request) {
         flags: site.flags,
         finance: site.finance,
         maintenance: site.maintenance,
+        walletMode: site.walletMode,
+        displayCurrency: site.displayCurrency,
+        usdtToPkrRate: site.usdtToPkrRate,
       });
     }
-    const first = await zuvoAdmin()
-      .from("members")
-      .select("account,vip,invite,invest,brokerage,status,name")
-      .eq("account", account)
-      .maybeSingle();
+    const [first, deposits, coins, settings] = await Promise.all([
+      zuvoAdmin()
+        .from("members")
+        .select("account,vip,invite,invest,brokerage,status,name")
+        .eq("account", account)
+        .maybeSingle(),
+      zuvoAdmin()
+        .from("recharges")
+        .select("network,status,at")
+        .eq("account", account)
+        .order("at", { ascending: false })
+        .limit(30),
+      readCoins(),
+      readSettings(),
+    ]);
     const row = first.error
       ? await zuvoAdmin()
           .from("members")
@@ -48,6 +63,11 @@ export async function GET(request: Request) {
     if (row.error) return NextResponse.json({ error: row.error.message }, { status: 500 });
     const data = row.data as { account?: string; vip?: string; invite?: string; invest?: number; brokerage?: number; status?: string; name?: string } | null;
     const acc = data?.account || account;
+    const displayCurrency = resolveMemberDisplayCurrency({
+      coins,
+      walletMode: settings?.walletMode ?? site.walletMode,
+      deposits: (deposits.data || []) as { network?: string; status?: string }[],
+    });
     return NextResponse.json({
       account: acc,
       name: displayName(data?.name, acc),
@@ -62,6 +82,9 @@ export async function GET(request: Request) {
       flags: site.flags,
       finance: site.finance,
       maintenance: site.maintenance,
+      walletMode: site.walletMode,
+      displayCurrency,
+      usdtToPkrRate: site.usdtToPkrRate,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zuvo read failed";

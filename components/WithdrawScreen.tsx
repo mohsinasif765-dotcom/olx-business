@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n";
 import { debitWallet, loadWallets } from "@/lib/wallets";
 import { fetchContent } from "@/lib/fetch-content";
 import { postLedger } from "@/lib/ledger";
+import { isBankCurrency, normalizeWalletMode, type WalletMode } from "@/lib/currencies";
 import { CurrencySelect } from "@/components/CurrencySelect";
 
 export type WithdrawRecord = {
@@ -20,6 +21,18 @@ export type WithdrawRecord = {
   status: string;
   at: string;
 };
+
+type CoinOpt = { id: string; name: string; network?: string; payKind?: string };
+type PayoutTab = "USDT" | "Bank";
+
+function isUsdtCoin(c: CoinOpt) {
+  return (
+    String(c.id).toLowerCase() === "usdt" ||
+    c.name === "USDT" ||
+    c.payKind === "crypto" ||
+    !isBankCurrency(c.id, c.name)
+  );
+}
 
 export function WithdrawScreen() {
   const { t } = useLanguage();
@@ -34,11 +47,14 @@ export function WithdrawScreen() {
   const [fee, setFee] = useState(1);
   const [minPayout, setMinPayout] = useState(1);
   const [paused, setPaused] = useState(false);
-  const [coins, setCoins] = useState<{ id: string; name: string; network?: string }[]>([
-    { id: "usdt", name: "USDT", network: "Tether" },
-    { id: "pkr", name: "PKR", network: "Pakistan" },
+  const [coins, setCoins] = useState<CoinOpt[]>([
+    { id: "pkr", name: "PKR", network: "Pakistan", payKind: "bank" },
+    { id: "usdt", name: "USDT", network: "Tether", payKind: "crypto" },
   ]);
-  const [coin, setCoin] = useState("USDT");
+  const [coin, setCoin] = useState("PKR");
+  const [walletMode, setWalletMode] = useState<WalletMode>("pkr");
+  const [usdtToPkrRate, setUsdtToPkrRate] = useState(280);
+  const [payoutTab, setPayoutTab] = useState<PayoutTab>("Bank");
 
   useEffect(() => {
     void loadWallets().then((w) => setBalance(w.invest));
@@ -46,21 +62,68 @@ export function WithdrawScreen() {
     const qs = account ? `?account=${encodeURIComponent(account)}` : "";
     void fetch(`/api/me${qs}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { finance?: { minWithdraw?: number; payoutFee?: number }; flags?: { withdrawOn?: boolean } } | null) => {
-        if (data?.finance?.minWithdraw) setMinPayout(data.finance.minWithdraw);
-        if (data?.finance?.payoutFee != null) setFee(data.finance.payoutFee);
-        if (data?.flags?.withdrawOn === false) setPaused(true);
-      })
+      .then(
+        (data: {
+          finance?: { minWithdraw?: number; payoutFee?: number };
+          flags?: { withdrawOn?: boolean };
+          usdtToPkrRate?: number;
+          walletMode?: string;
+        } | null) => {
+          if (data?.finance?.minWithdraw) setMinPayout(data.finance.minWithdraw);
+          if (data?.finance?.payoutFee != null) setFee(data.finance.payoutFee);
+          if (data?.flags?.withdrawOn === false) setPaused(true);
+          if (data?.usdtToPkrRate) setUsdtToPkrRate(Number(data.usdtToPkrRate) || 280);
+          if (data?.walletMode) setWalletMode(normalizeWalletMode(data.walletMode));
+        }
+      )
       .catch(() => {});
     void fetchContent()
-      .then((data: { coins?: { id: string; name: string; network?: string }[] } | null) => {
-        if (data?.coins?.length) {
+      .then(
+        (data: {
+          coins?: CoinOpt[];
+          walletMode?: string;
+          usdtToPkrRate?: number;
+        } | null) => {
+          if (data?.usdtToPkrRate) setUsdtToPkrRate(Number(data.usdtToPkrRate) || 280);
+          const mode = normalizeWalletMode(data?.walletMode || "pkr");
+          setWalletMode(mode);
+          if (!data?.coins?.length) return;
           setCoins(data.coins);
-          setCoin(data.coins[0].name);
+          const usdt = data.coins.find(isUsdtCoin);
+          const bank = data.coins.find((c) => !isUsdtCoin(c));
+          if (mode === "usdt") {
+            setPayoutTab(usdt && bank ? "USDT" : bank ? "Bank" : "USDT");
+            setCoin((usdt || data.coins[0]).name);
+          } else if (mode === "dual") {
+            setPayoutTab(usdt && bank ? "USDT" : bank ? "Bank" : "USDT");
+            setCoin((usdt || bank || data.coins[0]).name);
+          } else {
+            setPayoutTab("Bank");
+            setCoin((bank || data.coins[0]).name);
+          }
         }
-      })
+      )
       .catch(() => {});
   }, []);
+
+  const usdtCoins = useMemo(() => coins.filter(isUsdtCoin), [coins]);
+  const bankCoins = useMemo(() => coins.filter((c) => !isUsdtCoin(c)), [coins]);
+  const showTabs = usdtCoins.length > 0 && bankCoins.length > 0;
+
+  function selectTab(tab: PayoutTab) {
+    setPayoutTab(tab);
+    setAddress("");
+    if (tab === "USDT") {
+      setCoin((usdtCoins[0] || coins[0]).name);
+    } else {
+      setCoin((bankCoins[0] || coins[0]).name);
+    }
+  }
+
+  const selected = coins.find((c) => c.name === coin) || coins[0];
+  const bankMode = selected ? isBankCurrency(selected.id, selected.name) : true;
+  const showPkrEstimate =
+    bankMode && (walletMode === "usdt" || walletMode === "dual") && usdtToPkrRate > 0;
 
   const parsedAmount = Number(amount);
   const arrival = useMemo(() => {
@@ -68,12 +131,17 @@ export function WithdrawScreen() {
     return Math.max(0, parsedAmount - fee);
   }, [parsedAmount, fee]);
 
+  const estimatedPkr = useMemo(() => {
+    if (!showPkrEstimate || arrival <= 0) return 0;
+    return Number((arrival * usdtToPkrRate).toFixed(2));
+  }, [showPkrEstimate, arrival, usdtToPkrRate]);
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
     if (!address.trim()) {
-      setError(t.addressRequired);
+      setError(bankMode ? t.bankDetailsRequired : t.addressRequired);
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount < minPayout) {
@@ -109,9 +177,9 @@ export function WithdrawScreen() {
         id: String(Date.now()),
         wallet: coin,
         address: address.trim(),
-        amount: parsedAmount.toFixed(6),
-        fee: fee.toFixed(6),
-        arrival: arrival.toFixed(6),
+        amount: parsedAmount.toFixed(2),
+        fee: fee.toFixed(2),
+        arrival: arrival.toFixed(2),
         status: t.resultPending,
         at: new Date().toLocaleString(),
       };
@@ -135,6 +203,9 @@ export function WithdrawScreen() {
     });
   }
 
+  const tabCoins = payoutTab === "USDT" ? usdtCoins : bankCoins;
+  const methodCoins = showTabs ? (tabCoins.length ? tabCoins : coins) : coins;
+
   return (
     <div className="star-field">
       <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
@@ -154,25 +225,60 @@ export function WithdrawScreen() {
         <div className="wd-balance mb-4">
           <p className="text-[12px] text-white/55">{t.availableAssets}</p>
           <p className="mt-2 text-[28px] font-semibold tracking-wide text-[#7ee0ff]">
-            {balance.toFixed(6)}
+            {balance.toFixed(2)}
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="pay-card">
             <p className="text-[11px] tracking-wide text-white/45 uppercase">{t.payoutMethod}</p>
-            <CurrencySelect coins={coins} value={coin} onChange={setCoin} />
-            <p className="mt-1 text-[13px] text-white/50">{t.payoutHint}</p>
+            {showTabs ? (
+              <div className="mt-2 mb-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`rounded-xl py-2.5 text-[13px] font-semibold ${
+                    payoutTab === "USDT"
+                      ? "bg-[#3b82f6] text-white"
+                      : "bg-white/5 text-white/60"
+                  }`}
+                  onClick={() => selectTab("USDT")}
+                >
+                  USDT
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-xl py-2.5 text-[13px] font-semibold ${
+                    payoutTab === "Bank"
+                      ? "bg-[#3b82f6] text-white"
+                      : "bg-white/5 text-white/60"
+                  }`}
+                  onClick={() => selectTab("Bank")}
+                >
+                  Bank
+                </button>
+              </div>
+            ) : null}
+            {methodCoins.length > 1 ? (
+              <CurrencySelect coins={methodCoins} value={coin} onChange={setCoin} />
+            ) : (
+              <p className="mt-2 text-[15px] font-medium text-white/90">{coin}</p>
+            )}
+            <p className="mt-1 text-[13px] text-white/50">
+              {bankMode ? t.payoutHintBank : t.payoutHint}
+            </p>
           </div>
 
           <label className="block">
-            <span className="mb-2 block text-[12px] text-white/55">{t.withdrawalAddress}</span>
-            <input
+            <span className="mb-2 block text-[12px] text-white/55">
+              {bankMode ? t.bankAccountLabel : t.withdrawalAddress}
+            </span>
+            <textarea
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder={t.addressPlaceholder}
-              className="wd-input"
+              placeholder={bankMode ? t.bankAccountPlaceholder : t.addressPlaceholder}
+              className="wd-input min-h-[88px] resize-y py-3"
               autoComplete="off"
+              rows={bankMode ? 3 : 2}
             />
           </label>
 
@@ -189,7 +295,7 @@ export function WithdrawScreen() {
               <button
                 type="button"
                 className="wd-all"
-                onClick={() => setAmount(balance.toFixed(6))}
+                onClick={() => setAmount(balance.toFixed(2))}
               >
                 {t.all}
               </button>
@@ -226,8 +332,22 @@ export function WithdrawScreen() {
           </label>
 
           <p className="text-right text-[12px] text-white/55">
-            {t.actualArrival}: {arrival.toFixed(6)} {coin}
+            {t.actualArrival}: {arrival.toFixed(2)} {coin}
           </p>
+
+          {showPkrEstimate && arrival > 0 ? (
+            <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-emerald-200/70">
+                Estimated PKR
+              </p>
+              <p className="mt-1 text-[20px] font-semibold text-emerald-200">
+                Rs {estimatedPkr.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="mt-1 text-[11px] text-white/45">
+                Rate 1 USDT ≈ Rs {usdtToPkrRate.toLocaleString("en-US")}
+              </p>
+            </div>
+          ) : null}
 
           {error ? (
             <p className="rounded-xl bg-[#ff5b7a]/12 px-3 py-2 text-center text-[13px] text-[#ff8aa0]">
@@ -248,7 +368,7 @@ export function WithdrawScreen() {
           <ol className="space-y-3 text-[12px] leading-5 text-white/68">
             <li>
               <strong className="text-white/90">1. {t.warm1Title}</strong>
-              <p className="mt-1">{t.warm1Body}</p>
+              <p className="mt-1">{bankMode ? t.warm1BodyBank : t.warm1Body}</p>
             </li>
             <li>
               <strong className="text-white/90">2. {t.warm2Title}</strong>

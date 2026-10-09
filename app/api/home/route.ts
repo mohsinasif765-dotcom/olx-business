@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { readSettings, readWithdraws } from "@/lib/server/db-tables";
+import { resolveMemberDisplayCurrency } from "@/lib/currencies";
+import { readCoins, readSettings, readWithdraws } from "@/lib/server/db-tables";
 import { fillWithdrawLogs } from "@/lib/withdraw-logs";
 import { stripDemoRows } from "@/lib/server/strip-demo";
 import { zuvoAdmin } from "@/lib/zuvo";
@@ -40,15 +41,32 @@ export async function GET(request: Request) {
   const db = zuvoAdmin();
 
   try {
-    const [stats, settings, withdraws, mine] = await Promise.all([
+    const [stats, settings, withdraws, coins, mine, deposits] = await Promise.all([
       memberStats(),
       readSettings(),
       readWithdraws(),
+      readCoins(),
       account
         ? db.from("members").select("invest,brokerage,invite").eq("account", account).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      account
+        ? db
+            .from("recharges")
+            .select("network,status,at")
+            .eq("account", account)
+            .order("at", { ascending: false })
+            .limit(30)
+        : Promise.resolve({ data: null, error: null }),
     ]);
     if (mine.error) return NextResponse.json({ error: mine.error.message }, { status: 500 });
+
+    const displayCurrency = resolveMemberDisplayCurrency({
+      coins,
+      walletMode: settings?.walletMode,
+      deposits: account ? ((deposits.data || []) as { network?: string; status?: string }[]) : null,
+    });
+    const walletMode = settings?.walletMode || "pkr";
+    const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
 
     const logs = fillWithdrawLogs(
       stripDemoRows(withdraws)
@@ -56,7 +74,7 @@ export async function GET(request: Request) {
         .slice(0, 12)
         .map((row) => ({
           user: mask(row.account),
-          amount: `${money(row.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${String(row.wallet || "USDT").toUpperCase()}`,
+          amount: `${money(row.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${String(row.wallet || displayCurrency).toUpperCase()}`,
         }))
     );
 
@@ -72,6 +90,9 @@ export async function GET(request: Request) {
       siteName: settings?.siteName || "OLX Business",
       users: stats.users,
       revenue: stats.revenue,
+      walletMode,
+      displayCurrency,
+      usdtToPkrRate,
       logs,
       wallets,
     });

@@ -93,11 +93,15 @@ create table if not exists public.site_settings (
   commission_l1 numeric not null default 15,
   commission_l2 numeric not null default 3,
   commission_l3 numeric not null default 1,
+  wallet_mode text not null default 'pkr',
+  usdt_to_pkr_rate numeric not null default 280,
   updated_at timestamptz not null default now()
 );
 
 -- Brand / splash logos live in Storage bucket `brand` (logo.* / splash.*).
 -- Admin Settings → Brand uploads there; member BrandLogo reads via /api/brand-assets.
+
+-- Customer support chat: see scripts/support-chat.sql (support_tickets / support_messages).
 
 create table if not exists public.admin_auth (
   id int primary key default 1 check (id = 1),

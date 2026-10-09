@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { moneyPrefix } from "@/lib/currencies";
+import { fetchContent } from "@/lib/fetch-content";
 import { buyShopPackage } from "@/lib/invest";
 import { getSessionAccount } from "@/lib/session";
 import { type ShopKind } from "@/lib/shop";
@@ -18,6 +20,8 @@ export function ShopScreen() {
   const [tab, setTab] = useState<ShopKind | "all">("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [cash, setCash] = useState("Rs");
+  const [fundLabel, setFundLabel] = useState("PKR");
   const plans = useMemo(
     () =>
       settings.packagesOn
@@ -27,6 +31,27 @@ export function ShopScreen() {
         : [],
     [allPlans, tab, settings.packagesOn]
   );
+
+  useEffect(() => {
+    const account = getSessionAccount();
+    const qs = account ? `?account=${encodeURIComponent(account)}` : "";
+    void fetch(account ? `/api/me${qs}` : "/api/content", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { displayCurrency?: string } | null) => {
+        const code = String(data?.displayCurrency || "PKR").toUpperCase();
+        setCash(moneyPrefix(code));
+        setFundLabel(code);
+      })
+      .catch(() => {
+        void fetchContent()
+          .then((data: { displayCurrency?: string } | null) => {
+            const code = String(data?.displayCurrency || "PKR").toUpperCase();
+            setCash(moneyPrefix(code));
+            setFundLabel(code);
+          })
+          .catch(() => {});
+      });
+  }, []);
 
   async function investNow(planId: string) {
     if (!getSessionAccount()) {
@@ -42,7 +67,7 @@ export function ShopScreen() {
       return;
     }
     if (result.error === "insufficient") {
-      setNote(`Invest wallet needs at least $${(result.need || 0).toFixed(0)}. Fund USDT first.`);
+      setNote(`Invest wallet needs at least ${cash} ${(result.need || 0).toFixed(0)}. Fund ${fundLabel} first.`);
       router.push(`/wallet/select?plan=${planId}`);
       return;
     }

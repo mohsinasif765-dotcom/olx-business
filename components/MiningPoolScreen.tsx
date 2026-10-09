@@ -4,9 +4,23 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { moneyPrefix } from "@/lib/currencies";
+import { fetchContent } from "@/lib/fetch-content";
+import { holdingImageFallback, isShopKind, normalizeHoldingImage } from "@/lib/holding-image";
 import { type CarHolding, loadGarage } from "@/lib/invest";
+import { getSessionAccount } from "@/lib/session";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
+
+function kindLabel(
+  kind: string,
+  t: { electronics: string; jewelry: string; usedCars: string; newCars: string }
+) {
+  if (kind === "electronics") return t.electronics;
+  if (kind === "jewelry") return t.jewelry;
+  if (kind === "used") return t.usedCars;
+  return t.newCars;
+}
 
 export function MiningPoolScreen() {
   const { t } = useLanguage();
@@ -15,17 +29,39 @@ export function MiningPoolScreen() {
   const [invest, setInvest] = useState(0);
   const [ready, setReady] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
+  const [cash, setCash] = useState("Rs");
 
   useEffect(() => {
     void loadGarage().then((data) => {
       setAccount(data.account);
-      setHoldings(data.holdings);
+      setHoldings(
+        data.holdings.map((row) => ({
+          ...row,
+          image: normalizeHoldingImage(row),
+        }))
+      );
       setInvest(data.wallets.invest);
       setReady(true);
     });
+    const session = getSessionAccount();
+    const qs = session ? `?account=${encodeURIComponent(session)}` : "";
+    void fetch(session ? `/api/me${qs}` : "/api/content", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { displayCurrency?: string } | null) => {
+        setCash(moneyPrefix(String(data?.displayCurrency || "PKR")));
+      })
+      .catch(() => {
+        void fetchContent()
+          .then((data: { displayCurrency?: string } | null) => {
+            setCash(moneyPrefix(String(data?.displayCurrency || "PKR")));
+          })
+          .catch(() => {});
+      });
   }, []);
 
   const active = holdings.filter((row) => row.status !== "ended");
+  const hero = active[0];
+  const heroSrc = hero ? normalizeHoldingImage(hero) : "";
 
   return (
     <div className="star-field">
@@ -41,15 +77,28 @@ export function MiningPoolScreen() {
           <LanguageSwitch globe />
         </header>
 
-        <div className="mb-4 overflow-hidden rounded-2xl">
-          <img
-            src={active[0]?.image || "/cars/city-sedan.jpg"}
-            alt=""
-            className="h-[148px] w-full object-cover"
-            onError={(event) => {
-              event.currentTarget.src = "/cars/city-sedan.jpg";
-            }}
-          />
+        <div className="mb-4 overflow-hidden rounded-2xl bg-white/5">
+          {heroSrc ? (
+            <img
+              src={heroSrc}
+              alt={hero?.name || ""}
+              className="h-[148px] w-full object-cover"
+              onError={(event) => {
+                const kind = hero?.kind || "";
+                const fallback = holdingImageFallback(kind);
+                if (event.currentTarget.src !== fallback) {
+                  event.currentTarget.src = fallback;
+                }
+                if (isShopKind(kind)) {
+                  event.currentTarget.style.display = "none";
+                }
+              }}
+            />
+          ) : (
+            <div className="flex h-[148px] items-center justify-center bg-gradient-to-br from-white/10 to-white/5 px-6 text-center">
+              <p className="text-[13px] text-white/50">{t.emptyHint}</p>
+            </div>
+          )}
         </div>
 
         {settings.maintenance ? (
@@ -60,7 +109,7 @@ export function MiningPoolScreen() {
 
         <p className="mb-1 text-center text-[13px] text-white/50">{t.emptyHint}</p>
         <p className="mb-5 text-center text-[22px] font-semibold">
-          {ready ? `${invest.toFixed(2)} USDT` : "…"}
+          {ready ? `${cash} ${invest.toFixed(2)}` : "…"}
         </p>
 
         {settings.packagesOn ? (
@@ -90,35 +139,38 @@ export function MiningPoolScreen() {
           ) : active.length === 0 ? (
             <p className="px-1 text-[13px] text-white/50">No active packages yet. Choose a car or shop package.</p>
           ) : (
-            active.map((plan) => (
-              <article key={plan.id} className="car-card">
-                <div className="car-photo" style={{ height: 120 }}>
-                  <img
-                    src={plan.image}
-                    alt={plan.name}
-                    onError={(event) => {
-                      event.currentTarget.src = "/cars/city-sedan.jpg";
-                    }}
-                  />
-                  <span className="car-badge">
-                    {plan.kind === "electronics"
-                      ? t.electronics
-                      : plan.kind === "jewelry"
-                        ? t.jewelry
-                        : plan.kind === "used"
-                          ? t.usedCars
-                          : t.newCars}
-                  </span>
-                </div>
-                <div className="p-3">
-                  <p className="font-semibold">{plan.name}</p>
-                  <p className="mt-1 text-[12px] text-white/50">
-                    {plan.invest} · {plan.term}
-                  </p>
-                  <p className="mt-1 text-[12px] text-[#3dff9a]">Expected {plan.returns}</p>
-                </div>
-              </article>
-            ))
+            active.map((plan) => {
+              const src = normalizeHoldingImage(plan);
+              return (
+                <article key={plan.id} className="car-card">
+                  <div className="car-photo bg-white/5" style={{ height: 120 }}>
+                    {src ? (
+                      <img
+                        src={src}
+                        alt={plan.name}
+                        onError={(event) => {
+                          const fallback = holdingImageFallback(plan.kind);
+                          if (event.currentTarget.src !== fallback) {
+                            event.currentTarget.src = fallback;
+                          }
+                          if (isShopKind(plan.kind)) {
+                            event.currentTarget.style.opacity = "0";
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <span className="car-badge">{kindLabel(plan.kind, t)}</span>
+                  </div>
+                  <div className="p-3">
+                    <p className="font-semibold">{plan.name}</p>
+                    <p className="mt-1 text-[12px] text-white/50">
+                      {plan.invest} · {plan.term}
+                    </p>
+                    <p className="mt-1 text-[12px] text-[#3dff9a]">Expected {plan.returns}</p>
+                  </div>
+                </article>
+              );
+            })
           )}
         </div>
       </div>

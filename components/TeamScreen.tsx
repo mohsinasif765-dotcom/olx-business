@@ -4,12 +4,14 @@ import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { moneyPrefix } from "@/lib/currencies";
 import { inviteLink } from "@/lib/invite";
 import { getSessionAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 
 type TeamPayload = {
   invite: string;
+  displayCurrency?: string;
   rates: { l1: number; l2: number; l3: number };
   totals: { team: number; commission: number; recharge: number; withdraw: number };
   levels: Record<string, { people: number; valid: number; rate: number }>;
@@ -35,6 +37,7 @@ export function TeamScreen() {
   const [loading, setLoading] = useState(true);
   const [team, setTeam] = useState<TeamPayload>(EMPTY);
   const [account, setAccount] = useState<string | null>(null);
+  const cash = moneyPrefix(team.displayCurrency || "PKR");
 
   function load(queryDate = date) {
     const session = getSessionAccount();
@@ -183,9 +186,9 @@ export function TeamScreen() {
         ) : (
           <div className="mb-3 grid grid-cols-2 gap-3">
             <Stat label={t.totalTeam} value={String(team.totals.team)} />
-            <Stat label={t.totalCommission} value={`$${team.totals.commission.toFixed(2)}`} />
-            <Stat label={t.totalTeamRecharge} value={`$${team.totals.recharge.toFixed(2)}`} />
-            <Stat label={t.totalTeamWithdraw} value={`$${team.totals.withdraw.toFixed(2)}`} />
+            <Stat label={t.totalCommission} value={`${cash} ${team.totals.commission.toFixed(2)}`} />
+            <Stat label={t.totalTeamRecharge} value={`${cash} ${team.totals.recharge.toFixed(2)}`} />
+            <Stat label={t.totalTeamWithdraw} value={`${cash} ${team.totals.withdraw.toFixed(2)}`} />
           </div>
         )}
 

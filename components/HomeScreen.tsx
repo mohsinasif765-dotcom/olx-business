@@ -5,6 +5,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { useLanguage } from "@/lib/i18n";
+import { moneyPrefix } from "@/lib/currencies";
 import { inviteLink } from "@/lib/invite";
 import { getSessionAccount } from "@/lib/session";
 import { loadWallets } from "@/lib/wallets";
@@ -23,6 +24,14 @@ export function HomeScreen() {
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
   const [siteName, setSiteName] = useState("OLX Business");
   const [stats, setStats] = useState({ users: 0, revenue: 0 });
+  const [currency, setCurrency] = useState("PKR");
+  const [usdtToPkrRate, setUsdtToPkrRate] = useState(280);
+  const cash = moneyPrefix(currency);
+  const totalAssets = wallets.invest + wallets.brokerage;
+  const approxPkr =
+    currency === "USDT" && usdtToPkrRate > 0
+      ? Number((totalAssets * usdtToPkrRate).toFixed(2))
+      : null;
 
   useEffect(() => {
     const account = getSessionAccount();
@@ -35,6 +44,8 @@ export function HomeScreen() {
         siteName?: string;
         users?: number;
         revenue?: number;
+        displayCurrency?: string;
+        usdtToPkrRate?: number;
         logs?: { user: string; amount: string }[];
         wallets?: { invest: number; brokerage: number; invite?: string };
       } | null) => {
@@ -43,6 +54,8 @@ export function HomeScreen() {
           return;
         }
         if (data.siteName) setSiteName(data.siteName);
+        if (data.displayCurrency) setCurrency(String(data.displayCurrency).toUpperCase());
+        if (data.usdtToPkrRate) setUsdtToPkrRate(Number(data.usdtToPkrRate) || 280);
         setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
         const incoming = Array.isArray(data.logs) ? data.logs : [];
         const hasFiat = incoming.some((row) => !/USDT\s*$/i.test(row.amount));
@@ -128,20 +141,25 @@ export function HomeScreen() {
             {t.totalAssets}
           </p>
           <p className="total-amount mt-3 text-center text-[42px] font-semibold leading-none">
-            ${(wallets.invest + wallets.brokerage).toFixed(2)}
+            {cash} {totalAssets.toFixed(2)}
           </p>
+          {approxPkr != null ? (
+            <p className="mt-2 text-center text-[13px] text-white/45">
+              ≈ Rs {approxPkr.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          ) : null}
 
           <div className="mt-8 mb-8 grid grid-cols-2 gap-4">
             <div className="rounded-2xl bg-white/5 px-3 py-3 text-center">
               <p className="text-[12px] text-white/55">{t.investWallet}</p>
               <p className="mt-2 text-[18px] font-medium text-[#9ee7ff]">
-                $ {wallets.invest.toFixed(2)}
+                {cash} {wallets.invest.toFixed(2)}
               </p>
             </div>
             <div className="rounded-2xl bg-white/5 px-3 py-3 text-center">
               <p className="text-[12px] text-white/55">{t.brokerageWallet}</p>
               <p className="mt-2 text-[18px] font-medium text-[#c6b8ff]">
-                $ {wallets.brokerage.toFixed(2)}
+                {cash} {wallets.brokerage.toFixed(2)}
               </p>
             </div>
           </div>
@@ -168,7 +186,7 @@ export function HomeScreen() {
             icon={<RevenueIcon />}
             value={stats.revenue}
             label={t.cumulativeRevenue}
-            prefix="$"
+            prefix={cash}
           />
         </div>
 
@@ -207,7 +225,7 @@ export function HomeScreen() {
               <p className="text-[12px] font-semibold">{t.usedCars}</p>
             </article>
             <article className="pay-card px-2 py-3 text-center">
-              <p className="text-[12px] font-semibold">USDT</p>
+              <p className="text-[12px] font-semibold">{currency === "PKR" ? "PKR" : currency}</p>
             </article>
           </div>
         </section>

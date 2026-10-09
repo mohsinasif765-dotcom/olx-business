@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { moneyPrefix } from "@/lib/currencies";
 import { getSessionAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 
@@ -21,6 +22,7 @@ export function TeamLevelDetail({ id }: { id: string }) {
   const [rate, setRate] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
   const [ready, setReady] = useState(false);
+  const [cash, setCash] = useState("Rs");
 
   useEffect(() => {
     const account = getSessionAccount();
@@ -30,8 +32,13 @@ export function TeamLevelDetail({ id }: { id: string }) {
     }
     void fetch(`/api/team?account=${encodeURIComponent(account)}&level=${level}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { levels?: Record<string, { people: number; valid: number; rate: number }>; members?: Row[] } | null) => {
+      .then((data: {
+        displayCurrency?: string;
+        levels?: Record<string, { people: number; valid: number; rate: number }>;
+        members?: Row[];
+      } | null) => {
         if (!data) return;
+        if (data.displayCurrency) setCash(moneyPrefix(data.displayCurrency));
         setPeople(data.levels?.[level]?.people || 0);
         setValid(data.levels?.[level]?.valid || 0);
         setRate(data.levels?.[level]?.rate || 0);
@@ -87,7 +94,9 @@ export function TeamLevelDetail({ id }: { id: string }) {
                     {row.vip} · {row.joined || "—"}
                   </p>
                 </div>
-                <p className="text-[15px] font-semibold">${row.invest.toFixed(2)}</p>
+                <p className="text-[15px] font-semibold">
+                  {cash} {row.invest.toFixed(2)}
+                </p>
               </article>
             ))}
           </div>
