@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { type CarKind } from "@/lib/cars";
-import { moneyPrefix } from "@/lib/currencies";
+import { rememberFundTarget } from "@/lib/fund-target";
 import { buyCarPackage } from "@/lib/invest";
 import { getSessionAccount } from "@/lib/session";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
-import { fetchContent } from "@/lib/fetch-content";
+import { usePackageFx } from "@/lib/use-package-fx";
 
 export { VIP_PLANS } from "@/lib/cars";
 
@@ -19,11 +19,10 @@ export function VipScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const { plans: allPlans, settings, loaded } = useCarPlans();
+  const { money, moneyPkr, fromUsdt, fundLabel, dual } = usePackageFx();
   const [tab, setTab] = useState<CarKind | "all">("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [cash, setCash] = useState("Rs");
-  const [fundLabel, setFundLabel] = useState("PKR");
   const plans = useMemo(
     () =>
       settings.packagesOn
@@ -33,27 +32,6 @@ export function VipScreen() {
         : [],
     [allPlans, tab, settings.packagesOn]
   );
-
-  useEffect(() => {
-    const account = getSessionAccount();
-    const qs = account ? `?account=${encodeURIComponent(account)}` : "";
-    void fetch(account ? `/api/me${qs}` : "/api/content", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { displayCurrency?: string } | null) => {
-        const code = String(data?.displayCurrency || "PKR").toUpperCase();
-        setCash(moneyPrefix(code));
-        setFundLabel(code);
-      })
-      .catch(() => {
-        void fetchContent()
-          .then((data: { displayCurrency?: string } | null) => {
-            const code = String(data?.displayCurrency || "PKR").toUpperCase();
-            setCash(moneyPrefix(code));
-            setFundLabel(code);
-          })
-          .catch(() => {});
-      });
-  }, []);
 
   async function investNow(planId: string) {
     if (!getSessionAccount()) {
@@ -69,8 +47,19 @@ export function VipScreen() {
       return;
     }
     if (result.error === "insufficient") {
-      setNote(`Invest wallet needs at least ${cash} ${(result.need || 0).toFixed(0)}. Fund ${fundLabel} first.`);
-      router.push(`/wallet/select?plan=${planId}`);
+      const need = Number(result.need) || 0;
+      const pack = allPlans.find((row) => row.id === planId);
+      setNote(`Invest wallet needs at least ${fromUsdt(need)}. Fund ${fundLabel} first.`);
+      rememberFundTarget({
+        planId,
+        name: pack?.name,
+        invest: pack?.invest,
+        need,
+        catalog: "car",
+      });
+      const qs = new URLSearchParams({ plan: planId });
+      if (need > 0) qs.set("need", String(need));
+      router.push(`/wallet/select?${qs.toString()}`);
       return;
     }
     if (result.error === "paused") setNote("Car packages are paused in admin settings.");
@@ -123,33 +112,42 @@ export function VipScreen() {
             <p className="px-1 text-[13px] text-white/50">No packages in this tab yet.</p>
           ) : (
             plans.map((plan) => (
-            <article key={plan.id} className="car-card">
-              <div className="car-photo">
-                <img
-                  src={plan.image}
-                  alt={plan.name}
-                  onError={(event) => {
-                    event.currentTarget.src =
-                      plan.kind === "used" ? "/cars/used-compact.jpg" : "/cars/city-sedan.jpg";
-                  }}
-                />
-                <span className="car-badge">{plan.kind === "used" ? t.usedCars : t.newCars}</span>
-              </div>
-              <div className="p-3.5">
-                <h2 className="mb-3 text-[16px] font-semibold">{plan.name}</h2>
-                <Row label={t.investAmount} value={plan.invest} />
-                <Row label={t.expectedReturn} value={plan.returns} accent />
-                <Row label={t.planTerm} value={plan.term} />
-                <button
-                  type="button"
-                  className="car-invest"
-                  disabled={busy === plan.id}
-                  onClick={() => void investNow(plan.id)}
-                >
-                  {busy === plan.id ? "Investing…" : t.investCta}
-                </button>
-              </div>
-            </article>
+              <article key={plan.id} className="car-card">
+                <div className="car-photo">
+                  <img
+                    src={plan.image}
+                    alt={plan.name}
+                    onError={(event) => {
+                      event.currentTarget.src =
+                        plan.kind === "used" ? "/cars/used-compact.jpg" : "/cars/city-sedan.jpg";
+                    }}
+                  />
+                  <span className="car-badge">{plan.kind === "used" ? t.usedCars : t.newCars}</span>
+                </div>
+                <div className="p-3.5">
+                  <h2 className="mb-3 text-[16px] font-semibold">{plan.name}</h2>
+                  <Row
+                    label={t.investAmount}
+                    value={money(plan.invest)}
+                    sub={dual ? `≈ ${moneyPkr(plan.invest)}` : undefined}
+                  />
+                  <Row
+                    label={t.expectedReturn}
+                    value={money(plan.returns)}
+                    accent
+                    sub={dual ? `≈ ${moneyPkr(plan.returns)}` : undefined}
+                  />
+                  <Row label={t.planTerm} value={plan.term} />
+                  <button
+                    type="button"
+                    className="car-invest"
+                    disabled={busy === plan.id}
+                    onClick={() => void investNow(plan.id)}
+                  >
+                    {busy === plan.id ? "Investing…" : t.investCta}
+                  </button>
+                </div>
+              </article>
             ))
           )}
         </div>
@@ -162,15 +160,20 @@ function Row({
   label,
   value,
   accent,
+  sub,
 }: {
   label: string;
   value: string;
   accent?: boolean;
+  sub?: string;
 }) {
   return (
     <div className="flex items-center justify-between py-[4px] text-[13px]">
       <span className="text-white/55">{label}</span>
-      <span className={accent ? "font-medium text-[#3dff9a]" : "text-white"}>{value}</span>
+      <span className={`text-right ${accent ? "font-medium text-[#3dff9a]" : "text-white"}`}>
+        {value}
+        {sub ? <span className="mt-0.5 block text-[11px] font-normal text-white/40">{sub}</span> : null}
+      </span>
     </div>
   );
 }

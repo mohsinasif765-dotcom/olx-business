@@ -96,6 +96,7 @@ create table if not exists public.site_settings (
   commission_l3 numeric not null default 1,
   wallet_mode text not null default 'pkr',
   usdt_to_pkr_rate numeric not null default 280,
+  usdt_rate_auto boolean not null default true,
   about_tagline text not null default '',
   about_body text not null default '',
   about_step1 text not null default '',

@@ -4,13 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { moneyPrefix } from "@/lib/currencies";
-import { fetchContent } from "@/lib/fetch-content";
 import { holdingImageFallback, isShopKind, normalizeHoldingImage } from "@/lib/holding-image";
 import { type CarHolding, loadGarage } from "@/lib/invest";
-import { getSessionAccount } from "@/lib/session";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
+import { usePackageFx } from "@/lib/use-package-fx";
 
 function kindLabel(
   kind: string,
@@ -25,11 +23,11 @@ function kindLabel(
 export function MiningPoolScreen() {
   const { t } = useLanguage();
   const { settings, loaded: plansLoaded } = useCarPlans();
+  const { money, cash } = usePackageFx();
   const [holdings, setHoldings] = useState<CarHolding[]>([]);
   const [invest, setInvest] = useState(0);
   const [ready, setReady] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
-  const [cash, setCash] = useState("Rs");
 
   useEffect(() => {
     void loadGarage().then((data) => {
@@ -43,20 +41,6 @@ export function MiningPoolScreen() {
       setInvest(data.wallets.invest);
       setReady(true);
     });
-    const session = getSessionAccount();
-    const qs = session ? `?account=${encodeURIComponent(session)}` : "";
-    void fetch(session ? `/api/me${qs}` : "/api/content", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { displayCurrency?: string } | null) => {
-        setCash(moneyPrefix(String(data?.displayCurrency || "PKR")));
-      })
-      .catch(() => {
-        void fetchContent()
-          .then((data: { displayCurrency?: string } | null) => {
-            setCash(moneyPrefix(String(data?.displayCurrency || "PKR")));
-          })
-          .catch(() => {});
-      });
   }, []);
 
   const active = holdings.filter((row) => row.status !== "ended");
@@ -164,9 +148,9 @@ export function MiningPoolScreen() {
                   <div className="p-3">
                     <p className="font-semibold">{plan.name}</p>
                     <p className="mt-1 text-[12px] text-white/50">
-                      {plan.invest} · {plan.term}
+                      {money(plan.invest)} · {plan.term}
                     </p>
-                    <p className="mt-1 text-[12px] text-[#3dff9a]">Expected {plan.returns}</p>
+                    <p className="mt-1 text-[12px] text-[#3dff9a]">Expected {money(plan.returns)}</p>
                   </div>
                 </article>
               );

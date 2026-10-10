@@ -6,10 +6,18 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { rememberFundCurrency } from "@/lib/display-currency";
 import { fetchContent } from "@/lib/fetch-content";
 import { getCoin } from "@/lib/coins";
-import { type CurrencyRow, isCryptoId, payDestination } from "@/lib/currencies";
+import {
+  currencyCodeFromRail,
+  formatMoneyLabel,
+  isCryptoId,
+  payDestination,
+  railDisplayTitle,
+  type CurrencyRow,
+} from "@/lib/currencies";
 import { CurrencyFlag } from "@/components/CurrencyFlag";
 import { useLanguage } from "@/lib/i18n";
-import { useCarPlans } from "@/lib/use-car-plans";
+import { useFundTarget } from "@/lib/fund-target";
+import { convertUsdtAmount } from "@/lib/package-money";
 import { postLedger } from "@/lib/ledger";
 import { getSessionAccount } from "@/lib/session";
 
@@ -34,7 +42,7 @@ export default function Page() {
 function RechargeDetail() {
   const { t } = useLanguage();
   const params = useSearchParams();
-  const { vipPlans } = useCarPlans();
+  const { planId, plan, need, range: planRange, investLabel, depositMinForRail, fx } = useFundTarget();
   const coinId = params.get("coin") || "usdt";
   const fallback = getCoin(coinId);
   const [asset, setAsset] = useState<PayAsset>({
@@ -78,25 +86,54 @@ function RechargeDetail() {
         if (data?.flags?.rechargeOn === false) setPaused(true);
         const row = data?.coins?.find((c) => c.id === coinId) || data?.coins?.[0];
         if (row) {
+          const payKind = row.payKind || (isCryptoId(row.id) ? "crypto" : "bank");
+          const code = currencyCodeFromRail({ ...row, payKind });
           setAsset({
             ...row,
-            symbol: row.name || row.id.toUpperCase(),
-            payKind: row.payKind || (isCryptoId(row.id) ? "crypto" : "bank"),
+            symbol: code,
+            payKind,
           });
-          rememberFundCurrency(row.name || row.id);
+          rememberFundCurrency(code);
         }
       })
       .catch(() => {});
   }, [coinId]);
 
-  const plan = useMemo(
-    () => vipPlans.find((item) => item.id === params.get("plan")) ?? null,
-    [params, vipPlans]
-  );
   const dest = payDestination(asset);
   const crypto = asset.payKind === "crypto" || isCryptoId(asset.id);
-  const minN = Number(asset.min) || 0;
-  const quick = [asset.min, String(minN * 2 || 50), String(minN * 5 || 100), String(minN * 10 || 500)];
+  const minN = depositMinForRail(asset.min, asset.symbol);
+  const minLabel = formatMoneyLabel(minN, asset.symbol);
+  const selectHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    if (planId) qs.set("plan", planId);
+    if (need > 0) qs.set("need", String(need));
+    const q = qs.toString();
+    return q ? `/wallet/select?${q}` : "/wallet/select";
+  }, [planId, need]);
+  const midUsdt =
+    planRange.max > planRange.min ? Math.round((planRange.min + planRange.max) / 2) : 0;
+  const maxInRail =
+    planRange.max > planRange.min
+      ? Math.ceil(convertUsdtAmount(planRange.max, asset.symbol, fx))
+      : 0;
+  const midInRail = midUsdt > 0 ? Math.ceil(convertUsdtAmount(midUsdt, asset.symbol, fx)) : 0;
+  const quick = planRange.min > 0 || need > 0
+    ? Array.from(
+        new Set(
+          [
+            String(minN),
+            midInRail > minN ? String(midInRail) : "",
+            maxInRail > minN ? String(maxInRail) : "",
+            String(Math.round(minN * 1.5)),
+          ].filter(Boolean),
+        ),
+      ).slice(0, 4)
+    : [
+        String(minN || 50),
+        String((minN || 50) * 2),
+        String((minN || 50) * 5),
+        String((minN || 50) * 10),
+      ];
   const qrValue = dest || asset.iban || asset.address;
   const ready = Boolean(dest || asset.iban || asset.bankName);
 
@@ -138,7 +175,7 @@ function RechargeDetail() {
       return;
     }
     if (minN > 0 && Number(amount) < minN) {
-      setMessage(`${t.minAmount} ${asset.min} ${asset.symbol}`);
+      setMessage(`${t.minAmount} ${minLabel}`);
       return;
     }
     if (!slip) {
@@ -168,17 +205,17 @@ function RechargeDetail() {
     const item: HistoryItem = {
       id: String(Date.now()),
       coin: asset.name,
-      amount: `${amount} ${asset.symbol}`,
+      amount: formatMoneyLabel(amount, asset.symbol),
       status: t.pending,
       at: new Date().toLocaleString(),
     };
     const prev = JSON.parse(window.localStorage.getItem("olx-recharge-history") || "[]") as HistoryItem[];
     window.localStorage.setItem("olx-recharge-history", JSON.stringify([item, ...prev].slice(0, 20)));
-    rememberFundCurrency(asset.name || asset.symbol || asset.id);
+    rememberFundCurrency(asset.symbol);
     await postLedger({
       kind: "recharges",
       amount: Number(amount),
-      network: asset.name,
+      network: asset.symbol,
       txHash: hash,
       slipUrl,
       status: "pending",
@@ -196,7 +233,7 @@ function RechargeDetail() {
       <div className="page-enter mx-auto min-h-screen w-full max-w-[430px] px-4 pb-28 pt-3">
         <header className="mb-5 flex items-center justify-between">
           <Link
-            href="/wallet/select"
+            href={selectHref}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-lg"
           >
             ‹
@@ -211,14 +248,16 @@ function RechargeDetail() {
           <div className="mx-auto mb-3 w-fit">
             <CurrencyFlag id={asset.id} name={asset.name} network={asset.network} size={56} />
           </div>
-          <h2 className="text-[20px] font-semibold">{asset.name}</h2>
+          <h2 className="text-[20px] font-semibold">{railDisplayTitle(asset)}</h2>
           <span className="mt-2 inline-flex rounded-full bg-[#6d5bff]/25 px-3 py-1 text-[11px] tracking-wide text-[#c9b8ff]">
-            {crypto ? asset.network : t.bankName}
-            {asset.network && !crypto ? ` · ${asset.network}` : ""}
+            {asset.symbol}
+            {crypto && asset.network ? ` · ${asset.network}` : ""}
+            {!crypto && asset.bankName ? ` · ${asset.bankName}` : ""}
           </span>
           {plan ? (
             <p className="mt-2 text-[12px] text-white/55">
               {t.selectedPlan}: {plan.name}
+              {investLabel ? ` · ${t.investAmount} ${investLabel}` : ""}
             </p>
           ) : null}
           <p className="mt-3 text-[12px] leading-5 text-white/60">{t.payToCompany}</p>
@@ -260,14 +299,12 @@ function RechargeDetail() {
 
         <div className="deposit-card mb-4 grid grid-cols-2 gap-3 p-4 text-center">
           <div>
-            <p className="text-[11px] text-white/45">{crypto ? t.network : t.bankName}</p>
-            <p className="mt-1 text-sm font-semibold">{asset.bankName || asset.network}</p>
+            <p className="text-[11px] text-white/45">{crypto ? t.network : t.payMethod}</p>
+            <p className="mt-1 text-sm font-semibold">{asset.bankName || asset.network || asset.name}</p>
           </div>
           <div>
             <p className="text-[11px] text-white/45">{t.minAmount}</p>
-            <p className="mt-1 text-sm font-semibold">
-              {asset.min} {asset.symbol}
-            </p>
+            <p className="mt-1 text-sm font-semibold">{minLabel}</p>
           </div>
         </div>
 

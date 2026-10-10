@@ -2,26 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
-import { moneyPrefix } from "@/lib/currencies";
-import { fetchContent } from "@/lib/fetch-content";
+import { rememberFundTarget } from "@/lib/fund-target";
 import { buyShopPackage } from "@/lib/invest";
 import { getSessionAccount } from "@/lib/session";
 import { type ShopKind } from "@/lib/shop";
 import { useLanguage } from "@/lib/i18n";
+import { usePackageFx } from "@/lib/use-package-fx";
 import { useShopPlans } from "@/lib/use-shop-plans";
 
 export function ShopScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const { plans: allPlans, settings, loaded } = useShopPlans();
+  const { money, moneyPkr, fromUsdt, fundLabel, dual } = usePackageFx();
   const [tab, setTab] = useState<ShopKind | "all">("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [cash, setCash] = useState("Rs");
-  const [fundLabel, setFundLabel] = useState("PKR");
   const plans = useMemo(
     () =>
       settings.packagesOn
@@ -31,27 +30,6 @@ export function ShopScreen() {
         : [],
     [allPlans, tab, settings.packagesOn]
   );
-
-  useEffect(() => {
-    const account = getSessionAccount();
-    const qs = account ? `?account=${encodeURIComponent(account)}` : "";
-    void fetch(account ? `/api/me${qs}` : "/api/content", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { displayCurrency?: string } | null) => {
-        const code = String(data?.displayCurrency || "PKR").toUpperCase();
-        setCash(moneyPrefix(code));
-        setFundLabel(code);
-      })
-      .catch(() => {
-        void fetchContent()
-          .then((data: { displayCurrency?: string } | null) => {
-            const code = String(data?.displayCurrency || "PKR").toUpperCase();
-            setCash(moneyPrefix(code));
-            setFundLabel(code);
-          })
-          .catch(() => {});
-      });
-  }, []);
 
   async function investNow(planId: string) {
     if (!getSessionAccount()) {
@@ -67,8 +45,19 @@ export function ShopScreen() {
       return;
     }
     if (result.error === "insufficient") {
-      setNote(`Invest wallet needs at least ${cash} ${(result.need || 0).toFixed(0)}. Fund ${fundLabel} first.`);
-      router.push(`/wallet/select?plan=${planId}`);
+      const need = Number(result.need) || 0;
+      const pack = allPlans.find((row) => row.id === planId);
+      setNote(`Invest wallet needs at least ${fromUsdt(need)}. Fund ${fundLabel} first.`);
+      rememberFundTarget({
+        planId,
+        name: pack?.name,
+        invest: pack?.invest,
+        need,
+        catalog: "shop",
+      });
+      const qs = new URLSearchParams({ plan: planId });
+      if (need > 0) qs.set("need", String(need));
+      router.push(`/wallet/select?${qs.toString()}`);
       return;
     }
     if (result.error === "paused") setNote("Shop packages are paused in admin settings.");
@@ -104,11 +93,19 @@ export function ShopScreen() {
           <button type="button" className={tab === "all" ? "is-on" : ""} onClick={() => setTab("all")}>
             {t.allCars}
           </button>
-          <button type="button" className={tab === "jewelry" ? "is-on" : ""} onClick={() => setTab("jewelry")}>
-            {t.jewelry}
-          </button>
-          <button type="button" className={tab === "electronics" ? "is-on" : ""} onClick={() => setTab("electronics")}>
+          <button
+            type="button"
+            className={tab === "electronics" ? "is-on" : ""}
+            onClick={() => setTab("electronics")}
+          >
             {t.electronics}
+          </button>
+          <button
+            type="button"
+            className={tab === "jewelry" ? "is-on" : ""}
+            onClick={() => setTab("jewelry")}
+          >
+            {t.jewelry}
           </button>
         </div>
 
@@ -135,8 +132,17 @@ export function ShopScreen() {
                 </div>
                 <div className="p-3.5">
                   <h2 className="mb-3 text-[16px] font-semibold">{plan.name}</h2>
-                  <Row label={t.investAmount} value={plan.invest} />
-                  <Row label={t.expectedReturn} value={plan.returns} accent />
+                  <Row
+                    label={t.investAmount}
+                    value={money(plan.invest)}
+                    sub={dual ? `≈ ${moneyPkr(plan.invest)}` : undefined}
+                  />
+                  <Row
+                    label={t.expectedReturn}
+                    value={money(plan.returns)}
+                    accent
+                    sub={dual ? `≈ ${moneyPkr(plan.returns)}` : undefined}
+                  />
                   <Row label={t.planTerm} value={plan.term} />
                   <button
                     type="button"
@@ -160,15 +166,20 @@ function Row({
   label,
   value,
   accent,
+  sub,
 }: {
   label: string;
   value: string;
   accent?: boolean;
+  sub?: string;
 }) {
   return (
     <div className="flex items-center justify-between py-[4px] text-[13px]">
       <span className="text-white/55">{label}</span>
-      <span className={accent ? "font-medium text-[#3dff9a]" : "text-white"}>{value}</span>
+      <span className={`text-right ${accent ? "font-medium text-[#3dff9a]" : "text-white"}`}>
+        {value}
+        {sub ? <span className="mt-0.5 block text-[11px] font-normal text-white/40">{sub}</span> : null}
+      </span>
     </div>
   );
 }

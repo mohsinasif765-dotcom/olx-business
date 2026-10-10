@@ -1,5 +1,9 @@
 import { FAQ_ARTICLES } from "@/lib/faq";
-import { migrateCurrencies, normalizeWalletMode, pickDisplayCurrency } from "@/lib/currencies";
+import {
+  filterCoinsByWalletMode,
+  normalizeWalletMode,
+  pickDisplayCurrency,
+} from "@/lib/currencies";
 import { stripDemoRows } from "@/lib/server/strip-demo";
 import {
   readActivities,
@@ -13,6 +17,7 @@ import {
   readTransfers,
   readWithdraws,
 } from "@/lib/server/db-tables";
+import { resolveUsdtFxTable, resolveUsdtToPkrRate } from "@/lib/server/live-fx";
 
 export type CmsPage = { slug: string; title: string; body: string };
 export type FaqItem = { id: string; tab: string; title: string; body: string; enabled?: boolean };
@@ -56,27 +61,27 @@ export async function readSite() {
         }));
   const walletMode = normalizeWalletMode(settings?.walletMode);
   const displayCurrency = pickDisplayCurrency(coins, walletMode);
-  const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
-  // Fund / withdraw rails: all enabled pay_rails (Trade FX payment-methods style).
-  // walletMode only drives display labels + Bank PKR estimate — not deposit list.
-  const liveCoins = migrateCurrencies(coins)
-    .filter((c) => c.enabled !== false)
-    .map((c) => ({
-      id: String(c.id),
-      name: String(c.name),
-      network: String(c.network || "Bank"),
-      min: String(c.min || "1"),
-      address: String(c.address || ""),
-      enabled: true,
-      payKind: c.payKind,
-      bankName: String(c.bankName || ""),
-      accountName: String(c.accountName || ""),
-      accountNumber: String(c.accountNumber || ""),
-      iban: String(c.iban || ""),
-      swift: String(c.swift || ""),
-      branch: String(c.branch || ""),
-      instructions: String(c.instructions || ""),
-    }));
+  const savedRate = Number(settings?.usdtToPkrRate) || 280;
+  const autoFx = settings?.usdtRateAuto !== false;
+  const usdtFx = await resolveUsdtFxTable(savedRate, autoFx);
+  const usdtToPkrRate = Number(usdtFx.PKR) || (await resolveUsdtToPkrRate(savedRate, autoFx));
+  // Fund / withdraw rails follow admin Currency mode (PKR | USDT | dual).
+  const liveCoins = filterCoinsByWalletMode(coins, walletMode).map((c) => ({
+    id: String(c.id),
+    name: String(c.name),
+    network: String(c.network || "Bank"),
+    min: String(c.min || "1"),
+    address: String(c.address || ""),
+    enabled: true,
+    payKind: c.payKind,
+    bankName: String(c.bankName || ""),
+    accountName: String(c.accountName || ""),
+    accountNumber: String(c.accountNumber || ""),
+    iban: String(c.iban || ""),
+    swift: String(c.swift || ""),
+    branch: String(c.branch || ""),
+    instructions: String(c.instructions || ""),
+  }));
 
   return {
     siteName: String(settings?.siteName || "OLX Business"),
@@ -86,6 +91,8 @@ export async function readSite() {
     walletMode,
     displayCurrency,
     usdtToPkrRate,
+    /** 1 USDT → N display units (packages priced in USDT). */
+    usdtFx,
     about: {
       tagline: String(settings?.aboutTagline || ""),
       body: String(settings?.aboutBody || ""),

@@ -1,11 +1,10 @@
+import { clampDisplayCurrency, normalizeCurrencyCode } from "@/lib/currencies";
+
 const KEY = "olx-fund-currency";
 
-/** Remember the currency the member last chose to fund / invest with. */
+/** Remember the currency the member last chose to fund / invest with (PKR | USDT). */
 export function rememberFundCurrency(code: string) {
-  const c = String(code || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
+  const c = clampDisplayCurrency(normalizeCurrencyCode(code) || code, "dual");
   if (!c || typeof window === "undefined") return;
   try {
     window.localStorage.setItem(KEY, c);
@@ -17,9 +16,11 @@ export function rememberFundCurrency(code: string) {
 export function readFundCurrency(): string {
   if (typeof window === "undefined") return "";
   try {
-    return String(window.localStorage.getItem(KEY) || "")
+    const raw = String(window.localStorage.getItem(KEY) || "")
       .trim()
       .toUpperCase();
+    if (!raw) return "";
+    return clampDisplayCurrency(raw, "dual");
   } catch {
     return "";
   }

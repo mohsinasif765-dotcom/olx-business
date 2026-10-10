@@ -4,8 +4,6 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { getSessionAccount } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
-import { fetchContent } from "@/lib/fetch-content";
-import { TELEGRAM_HANDLE, TELEGRAM_HELP } from "@/lib/links";
 
 type Msg = {
   id: string;
@@ -27,8 +25,6 @@ export function SupportChatScreen() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [telegram, setTelegram] = useState(TELEGRAM_HELP);
-  const [handle, setHandle] = useState(TELEGRAM_HANDLE);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -51,12 +47,6 @@ export function SupportChatScreen() {
   useEffect(() => {
     const session = getSessionAccount();
     setAccount(session);
-    void fetchContent()
-      .then((data: { telegram?: string; handle?: string } | null) => {
-        if (data?.telegram) setTelegram(data.telegram);
-        if (data?.handle) setHandle(data.handle);
-      })
-      .catch(() => {});
     if (!session) {
       setLoading(false);
       return;
@@ -138,9 +128,7 @@ export function SupportChatScreen() {
               {!account ? "Login required" : ticketStatus === "closed" ? "Closed" : "Online"}
             </p>
           </div>
-          <a href={telegram} target="_blank" rel="noreferrer" className="text-[12px] text-[#9ec6ff]" aria-label="Telegram">
-            TG
-          </a>
+          <span className="w-9" />
         </header>
 
         {!account ? (
@@ -243,14 +231,6 @@ export function SupportChatScreen() {
             </form>
           </>
         )}
-
-        <a href={telegram} target="_blank" rel="noreferrer" className="deposit-card mt-4 flex items-center gap-3 p-4">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2aa1d8] text-lg font-bold">T</span>
-          <span>
-            <span className="block font-medium">{t.telegram}</span>
-            <span className="text-[12px] text-white/50">{handle}</span>
-          </span>
-        </a>
       </div>
     </div>
   );

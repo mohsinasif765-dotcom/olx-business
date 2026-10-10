@@ -37,6 +37,7 @@ export async function GET(request: Request) {
         walletMode: site.walletMode,
         displayCurrency: site.displayCurrency,
         usdtToPkrRate: site.usdtToPkrRate,
+        usdtFx: site.usdtFx,
       });
     }
     const [first, deposits, coins, settings] = await Promise.all([
@@ -98,6 +99,7 @@ export async function GET(request: Request) {
       walletMode: site.walletMode,
       displayCurrency,
       usdtToPkrRate: site.usdtToPkrRate,
+      usdtFx: site.usdtFx,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zuvo read failed";

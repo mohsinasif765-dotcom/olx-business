@@ -18,9 +18,10 @@ export async function GET() {
         walletMode: site.walletMode,
         displayCurrency: site.displayCurrency,
         usdtToPkrRate: site.usdtToPkrRate,
+        usdtFx: site.usdtFx,
         about: site.about,
       },
-      { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
+      { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zuvo read failed";

@@ -6,7 +6,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { useLanguage } from "@/lib/i18n";
 import { moneyPrefix } from "@/lib/currencies";
-import { readFundCurrency, rememberFundCurrency } from "@/lib/display-currency";
+import { rememberFundCurrency } from "@/lib/display-currency";
 import { inviteLink } from "@/lib/invite";
 import { getSessionAccount } from "@/lib/session";
 import { loadWallets } from "@/lib/wallets";
@@ -25,63 +25,75 @@ export function HomeScreen() {
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
   const [siteName, setSiteName] = useState("OLX Business");
   const [stats, setStats] = useState({ users: 0, revenue: 0 });
-  const [currency, setCurrency] = useState(() => readFundCurrency() || "PKR");
+  const [currency, setCurrency] = useState("PKR");
+  const [walletMode, setWalletMode] = useState("pkr");
   const [usdtToPkrRate, setUsdtToPkrRate] = useState(280);
   const cash = moneyPrefix(currency);
   const totalAssets = wallets.invest + wallets.brokerage;
-  const approxPkr =
-    currency === "USDT" && usdtToPkrRate > 0
-      ? Number((totalAssets * usdtToPkrRate).toFixed(2))
-      : null;
+  const dual = walletMode === "dual";
+  const showPkrBeside =
+    (currency === "USDT" || dual) && usdtToPkrRate > 0;
+  const approxPkr = showPkrBeside
+    ? Number((totalAssets * usdtToPkrRate).toFixed(2))
+    : null;
 
   useEffect(() => {
     const account = getSessionAccount();
     setLoggedIn(Boolean(account));
-    const saved = readFundCurrency();
-    if (saved) setCurrency(saved);
     const origin = window.location.origin;
-    const params = new URLSearchParams();
-    if (account) params.set("account", account);
-    if (saved) params.set("prefer", saved);
-    const qs = params.toString() ? `?${params}` : "";
-    void fetch(`/api/home${qs}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: {
-        siteName?: string;
-        users?: number;
-        revenue?: number;
-        displayCurrency?: string;
-        usdtToPkrRate?: number;
-        logs?: { user: string; amount: string }[];
-        wallets?: { invest: number; brokerage: number; invite?: string };
-      } | null) => {
-        if (!data) {
-          void loadWallets().then(setWallets);
-          return;
-        }
-        if (data.siteName) setSiteName(data.siteName);
-        if (data.displayCurrency) {
-          const code = String(data.displayCurrency).toUpperCase();
+
+    function loadHome() {
+      const params = new URLSearchParams();
+      if (account) params.set("account", account);
+      const qs = params.toString() ? `?${params}` : "";
+      void fetch(`/api/home${qs}`, { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: {
+          siteName?: string;
+          users?: number;
+          revenue?: number;
+          displayCurrency?: string;
+          walletMode?: string;
+          usdtToPkrRate?: number;
+          logs?: { user: string; amount: string }[];
+          wallets?: { invest: number; brokerage: number; invite?: string };
+        } | null) => {
+          if (!data) {
+            void loadWallets().then(setWallets);
+            return;
+          }
+          if (data.siteName) setSiteName(data.siteName);
+          const mode = String(data.walletMode || "").toLowerCase();
+          setWalletMode(mode === "usdt" || mode === "dual" ? mode : "pkr");
+          const code =
+            mode === "pkr"
+              ? "PKR"
+              : "USDT";
           setCurrency(code);
           rememberFundCurrency(code);
-        }
-        if (data.usdtToPkrRate) setUsdtToPkrRate(Number(data.usdtToPkrRate) || 280);
-        setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
-        const incoming = Array.isArray(data.logs) ? data.logs : [];
-        const hasFiat = incoming.some((row) => !/USDT\s*$/i.test(row.amount));
-        setLogs(hasFiat ? fillWithdrawLogs(incoming) : SAMPLE_WITHDRAW_LOGS);
-        if (data.wallets) {
-          setWallets({ invest: data.wallets.invest, brokerage: data.wallets.brokerage });
-        } else {
+          if (data.usdtToPkrRate) setUsdtToPkrRate(Number(data.usdtToPkrRate) || 280);
+          setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
+          const incoming = Array.isArray(data.logs) ? data.logs : [];
+          const hasFiat = incoming.some((row) => !/USDT\s*$/i.test(row.amount));
+          setLogs(hasFiat ? fillWithdrawLogs(incoming) : SAMPLE_WITHDRAW_LOGS);
+          if (data.wallets) {
+            setWallets({ invest: data.wallets.invest, brokerage: data.wallets.brokerage });
+          } else {
+            void loadWallets().then(setWallets);
+          }
+          const invite = data.wallets?.invite || "";
+          setInviteHref(invite ? inviteLink(origin, invite) : `${origin}/register`);
+        })
+        .catch(() => {
           void loadWallets().then(setWallets);
-        }
-        const code = data.wallets?.invite || "";
-        setInviteHref(code ? inviteLink(origin, code) : `${origin}/register`);
-      })
-      .catch(() => {
-        void loadWallets().then(setWallets);
-        setInviteHref(`${origin}/register`);
-      });
+          setInviteHref(`${origin}/register`);
+        });
+    }
+
+    loadHome();
+    const onFocus = () => loadHome();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   useEffect(() => {
@@ -150,6 +162,9 @@ export function HomeScreen() {
           <p className="text-center text-[13px] tracking-[0.18em] text-white/60">
             {t.totalAssets}
           </p>
+          {dual ? (
+            <p className="mt-2 text-center text-[11px] tracking-[0.16em] text-[#9ee7ff]/80">PKR + USDT</p>
+          ) : null}
           <p className="total-amount mt-3 text-center text-[42px] font-semibold leading-none">
             {cash} {totalAssets.toFixed(2)}
           </p>
@@ -165,12 +180,22 @@ export function HomeScreen() {
               <p className="mt-2 text-[18px] font-medium text-[#9ee7ff]">
                 {cash} {wallets.invest.toFixed(2)}
               </p>
+              {showPkrBeside ? (
+                <p className="mt-1 text-[11px] text-white/40">
+                  ≈ Rs {(wallets.invest * usdtToPkrRate).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                </p>
+              ) : null}
             </div>
             <div className="rounded-2xl bg-white/5 px-3 py-3 text-center">
               <p className="text-[12px] text-white/55">{t.brokerageWallet}</p>
               <p className="mt-2 text-[18px] font-medium text-[#c6b8ff]">
                 {cash} {wallets.brokerage.toFixed(2)}
               </p>
+              {showPkrBeside ? (
+                <p className="mt-1 text-[11px] text-white/40">
+                  ≈ Rs {(wallets.brokerage * usdtToPkrRate).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                </p>
+              ) : null}
             </div>
           </div>
 

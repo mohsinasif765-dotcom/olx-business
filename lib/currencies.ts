@@ -157,7 +157,9 @@ export function migrateCurrencies(rows: CurrencyRow[] | undefined | null): Curre
     if (!unique.has(key)) unique.set(key, row);
   }
 
-  return ensureDefaults([...unique.values()]);
+  // Admin pay_rails is source of truth — do not inject default USD/EUR/PKR extras
+  // on top of live rows (that caused duplicate "PKR" + "PKR EASYPAISA" cards).
+  return sortCurrencies([...unique.values()]);
 }
 
 export function payDestination(row: CurrencyRow) {
@@ -181,12 +183,6 @@ function isUsdtRow(row: Pick<CurrencyRow, "id" | "name" | "payKind">) {
   return id === "usdt" || name === "USDT" || row.payKind === "crypto";
 }
 
-function isPkrRow(row: Pick<CurrencyRow, "id" | "name">) {
-  const id = String(row.id || "").toLowerCase();
-  const name = String(row.name || "").toUpperCase();
-  return id === "pkr" || name === "PKR";
-}
-
 /** Filter pay rails for the member app from admin walletMode. */
 export function filterCoinsByWalletMode(
   rows: CurrencyRow[] | undefined | null,
@@ -195,17 +191,18 @@ export function filterCoinsByWalletMode(
   const list = migrateCurrencies(rows).filter((row) => row.enabled !== false);
   const walletMode = normalizeWalletMode(mode);
   if (walletMode === "pkr") {
-    const pkr = list.filter(isPkrRow);
-    return pkr.length ? pkr : list.filter((row) => !isUsdtRow(row));
+    // All fiat / bank rails (JazzCash, EasyPaisa, PKR…) — hide crypto/USDT
+    return list.filter((row) => !isUsdtRow(row));
   }
   if (walletMode === "usdt") {
-    const usdt = list.filter(isUsdtRow);
-    return usdt.length ? usdt : list.filter((row) => String(row.id).toLowerCase() === "usdt");
+    // Crypto / USDT rails only
+    return list.filter(isUsdtRow);
   }
+  // dual: every enabled rail
   return list;
 }
 
-/** Wallet UI currency from admin mode (+ rails fallback for dual). */
+/** Wallet UI currency from admin mode. Dual = USDT ledger + PKR shown beside it. */
 export function pickDisplayCurrency(
   rows: CurrencyRow[] | undefined | null,
   mode?: unknown
@@ -213,11 +210,6 @@ export function pickDisplayCurrency(
   const walletMode = normalizeWalletMode(mode ?? "pkr");
   if (walletMode === "pkr") return "PKR";
   if (walletMode === "usdt") return "USDT";
-  const list = filterCoinsByWalletMode(rows, "dual");
-  const pkr = list.find(isPkrRow);
-  if (pkr) return "PKR";
-  const bank = list.find((row) => !isUsdtRow(row));
-  if (bank) return String(bank.name || bank.id).toUpperCase();
   return "USDT";
 }
 
@@ -272,26 +264,125 @@ export function currencyFromMemberDeposits(rows: DepositLike[] | undefined | nul
   return code || fallback;
 }
 
-/** Single resolver: fund/invest currency from deposits, else admin walletMode. */
+/**
+ * Clamp a code to what the admin wallet mode allows.
+ * PKR-only / USDT-only stay locked; dual keeps the real rail code (USD, EUR, PKR…).
+ */
+export function clampDisplayCurrency(code: unknown, mode?: unknown): string {
+  const walletMode = normalizeWalletMode(mode ?? "pkr");
+  if (walletMode === "pkr") return "PKR";
+  if (walletMode === "usdt") return "USDT";
+  const c = normalizeCurrencyCode(code);
+  if (!c) return "PKR";
+  if (c === "USDT") return "USDT";
+  if ((KNOWN_CODES as readonly string[]).includes(c)) return c;
+  return "PKR";
+}
+
+/** Single resolver: admin walletMode locks PKR/USDT; dual stays USDT + PKR pair. */
 export function resolveMemberDisplayCurrency(opts: {
   coins?: CurrencyRow[] | null;
   walletMode?: unknown;
   deposits?: DepositLike[] | null;
   prefer?: string | null;
 }): string {
-  const fallback = pickDisplayCurrency(opts.coins, opts.walletMode);
-  const fromDeposits = currencyFromMemberDeposits(opts.deposits, "");
-  if (fromDeposits) return fromDeposits;
-  const prefer = normalizeCurrencyCode(opts.prefer);
-  if (prefer) return prefer;
-  return fallback;
+  const mode = normalizeWalletMode(opts.walletMode);
+  if (mode === "pkr") return "PKR";
+  if (mode === "usdt") return "USDT";
+  return "USDT";
 }
 
-/** Prefix shown before amounts on Home / Team. */
+/** Digits-only amount from admin min fields like "$50", "Rs 1,000", "50 PKR". */
+export function sanitizeMoneyAmount(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  const match = s.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  return match ? match[1] : "";
+}
+
+/** Parse plan invest text like "$300 – $500" / "Rs 300-500" → { min, max }. */
+export function parseInvestRange(raw: unknown): { min: number; max: number } {
+  const s = String(raw ?? "").replace(/,/g, " ");
+  const nums = [...s.matchAll(/(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1])).filter((n) => Number.isFinite(n) && n > 0);
+  if (!nums.length) return { min: 0, max: 0 };
+  if (nums.length === 1) return { min: nums[0], max: nums[0] };
+  return { min: Math.min(nums[0], nums[1]), max: Math.max(nums[0], nums[1]) };
+}
+
+/**
+ * When funding for a package, deposit min = max(rail min, plan invest min).
+ * Without a plan, rail min only.
+ */
+export function effectiveDepositMin(railMin: unknown, planInvest?: unknown): number {
+  const rail = Number(sanitizeMoneyAmount(railMin)) || 0;
+  const plan = parseInvestRange(planInvest).min;
+  return Math.max(rail, plan);
+}
+
+/** Prefix / unit for a currency code — each rail keeps its own unit. */
 export function moneyPrefix(code: string): string {
-  const c = String(code || "PKR").toUpperCase();
+  const c = normalizeCurrencyCode(code) || "PKR";
+  if (c === "USDT") return "USDT";
   if (c === "USD") return "$";
   if (c === "PKR") return "Rs";
-  if (c === "USDT") return "USDT";
+  if (c === "EUR") return "€";
+  if (c === "GBP") return "£";
   return c;
+}
+
+/** One unit only — e.g. "Rs 50", "$ 10", "50 USDT", "₹" style via code. Never "$50 PKR". */
+export function formatMoneyLabel(amount: unknown, code: string): string {
+  const n = sanitizeMoneyAmount(amount);
+  const unit = moneyPrefix(code);
+  if (!n) return unit;
+  if (unit === "Rs" || unit === "$" || unit === "€" || unit === "£") return `${unit} ${n}`;
+  return `${n} ${unit}`;
+}
+
+/** Rewrite plan strings like "$100 – $199" to match member display currency. */
+export function localizeMoneyText(text: string, code: string): string {
+  const raw = String(text || "");
+  if (!raw) return raw;
+  const prefix = moneyPrefix(code);
+  if (prefix === "$") return raw;
+  return raw
+    .replace(/\$\s*/g, prefix === "Rs" ? "Rs " : `${prefix} `)
+    .replace(/\bUSD\b/gi, prefix === "Rs" ? "PKR" : prefix)
+    .replace(/Rs\s+Rs\s+/g, "Rs ");
+}
+
+/** Currency code from a pay rail — uses rail id/name (USD, EUR, PKR…), not network country. */
+export function currencyCodeFromRail(row: {
+  id?: string;
+  name?: string;
+  network?: string;
+  payKind?: string;
+}): string {
+  if (row.payKind === "crypto" || isUsdtRow(row as CurrencyRow) || isCryptoId(String(row.id || ""))) {
+    return "USDT";
+  }
+  const fromId = normalizeCurrencyCode(row.id);
+  if (fromId && (KNOWN_CODES as readonly string[]).includes(fromId)) return fromId;
+  const fromName = normalizeCurrencyCode(row.name);
+  if (fromName && (KNOWN_CODES as readonly string[]).includes(fromName)) return fromName;
+  if (/\bpakistan\b/i.test(String(row.network || ""))) return "PKR";
+  return fromName || fromId || "PKR";
+}
+
+/** Member-facing method title: bank name, or name without leading currency code. */
+export function railDisplayTitle(row: {
+  id?: string;
+  name?: string;
+  bankName?: string;
+  payKind?: string;
+  network?: string;
+}): string {
+  const bank = String(row.bankName || "").trim();
+  if (bank) return bank;
+  const raw = String(row.name || row.id || "").trim();
+  if (!raw) return "Pay";
+  const code = currencyCodeFromRail(row);
+  const stripped = raw.replace(new RegExp(`^${code}\\s*[·\\-–:]?\\s*`, "i"), "").trim();
+  if (stripped && stripped.toUpperCase() !== code) return stripped;
+  return raw;
 }
