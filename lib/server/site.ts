@@ -42,6 +42,7 @@ export async function readSite() {
       readActivityState(),
     ]);
   const telegram = String(settings?.telegram || "https://t.me/olxbusiness_help");
+  const whatsapp = String(settings?.whatsapp || "").trim();
   const liveFaqs = faqs
     .filter((row) => row.enabled !== false)
     .map((row) => ({
@@ -86,6 +87,7 @@ export async function readSite() {
   return {
     siteName: String(settings?.siteName || "OLX Business"),
     telegram,
+    whatsapp,
     handle: telegramHandle(telegram),
     maintenance: String(settings?.maintenance || ""),
     walletMode,

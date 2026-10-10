@@ -99,6 +99,7 @@ export async function GET(request: Request) {
       siteName: settings?.siteName || "OLX Business",
       users: stats.users,
       revenue: stats.revenue,
+      whatsapp: String(settings?.whatsapp || "").trim(),
       walletMode,
       displayCurrency,
       usdtToPkrRate,

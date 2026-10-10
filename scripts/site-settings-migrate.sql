@@ -5,6 +5,8 @@ alter table public.site_settings
   add column if not exists usdt_to_pkr_rate numeric not null default 280;
 alter table public.site_settings
   add column if not exists usdt_rate_auto boolean not null default true;
+alter table public.site_settings
+  add column if not exists whatsapp text not null default '';
 
 alter table public.site_settings
   add column if not exists about_tagline text not null default '';

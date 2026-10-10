@@ -25,6 +25,7 @@ export function HomeScreen() {
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
   const [siteName, setSiteName] = useState("OLX Business");
   const [stats, setStats] = useState({ users: 0, revenue: 0 });
+  const [whatsapp, setWhatsapp] = useState("");
   const [currency, setCurrency] = useState("PKR");
   const [walletMode, setWalletMode] = useState("pkr");
   const [usdtToPkrRate, setUsdtToPkrRate] = useState(280);
@@ -52,6 +53,7 @@ export function HomeScreen() {
           siteName?: string;
           users?: number;
           revenue?: number;
+          whatsapp?: string;
           displayCurrency?: string;
           walletMode?: string;
           usdtToPkrRate?: number;
@@ -63,6 +65,7 @@ export function HomeScreen() {
             return;
           }
           if (data.siteName) setSiteName(data.siteName);
+          setWhatsapp(normalizeWhatsAppUrl(data.whatsapp || ""));
           const mode = String(data.walletMode || "").toLowerCase();
           setWalletMode(mode === "usdt" || mode === "dual" ? mode : "pkr");
           const code =
@@ -212,11 +215,28 @@ export function HomeScreen() {
         </section>
 
         <div className="mb-4 grid grid-cols-2 gap-3">
-          <StatCard
-            icon={<UsersIcon />}
-            value={stats.users}
-            label={t.cumulativeUsers}
-          />
+          {whatsapp ? (
+            <a
+              href={whatsapp}
+              target="_blank"
+              rel="noreferrer"
+              className="stat-card flex flex-col items-center rounded-[22px] px-3 py-5 text-center transition hover:bg-white/[0.04]"
+            >
+              <span className="stat-icon mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#25D366]/20 text-[#25D366]">
+                <WhatsAppCardIcon />
+              </span>
+              <p className="text-[18px] font-semibold leading-tight text-white">{t.whatsapp}</p>
+              <p className="mt-1 text-[12px] leading-4 text-white/55">{t.whatsappHint}</p>
+            </a>
+          ) : (
+            <div className="stat-card flex flex-col items-center rounded-[22px] px-3 py-5 text-center">
+              <span className="stat-icon mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#25D366]/20 text-[#25D366]">
+                <WhatsAppCardIcon />
+              </span>
+              <p className="text-[18px] font-semibold leading-tight text-white">{t.whatsapp}</p>
+              <p className="mt-1 text-[12px] leading-4 text-white/45">Admin → Brand → Save link</p>
+            </div>
+          )}
           <StatCard
             icon={<RevenueIcon />}
             value={stats.revenue}
@@ -455,6 +475,24 @@ function WhatsAppIcon() {
       <path d="M12.04 3.1A8.9 8.9 0 003.1 12c0 1.6.4 3.1 1.2 4.4L3 21l4.7-1.2A8.9 8.9 0 0012 20.9 8.9 8.9 0 0020.9 12 8.9 8.9 0 0012.04 3.1zm4.9 12.6c-.2.6-1.2 1.1-1.7 1.2-.4.1-.9.1-1.5 0-.3 0-.7-.1-2.3-.9-1.9-1-3.1-2.8-3.2-2.9-.1-.2-1-1.3-1-2.5s.6-1.8.8-2 .4-.3.6-.3h.4c.1 0 .3 0 .4.3.2.5.6 1.6.7 1.7.1.1.1.3 0 .4l-.3.4c-.1.1-.2.3-.1.5.1.2.5 1 1.1 1.6.8.8 1.4 1 1.6 1.1.2.1.4.1.5 0l.5-.3c.1-.1.3-.1.5 0l1.7.8c.2.1.3.2.4.3 0 .2 0 .7-.4 1.3z" />
     </svg>
   );
+}
+
+function WhatsAppCardIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12.04 3.1A8.9 8.9 0 003.1 12c0 1.6.4 3.1 1.2 4.4L3 21l4.7-1.2A8.9 8.9 0 0012 20.9 8.9 8.9 0 0020.9 12 8.9 8.9 0 0012.04 3.1zm4.9 12.6c-.2.6-1.2 1.1-1.7 1.2-.4.1-.9.1-1.5 0-.3 0-.7-.1-2.3-.9-1.9-1-3.1-2.8-3.2-2.9-.1-.2-1-1.3-1-2.5s.6-1.8.8-2 .4-.3.6-.3h.4c.1 0 .3 0 .4.3.2.5.6 1.6.7 1.7.1.1.1.3 0 .4l-.3.4c-.1.1-.2.3-.1.5.1.2.5 1 1.1 1.6.8.8 1.4 1 1.6 1.1.2.1.4.1.5 0l.5-.3c.1-.1.3-.1.5 0l1.7.8c.2.1.3.2.4.3 0 .2 0 .7-.4 1.3z" />
+    </svg>
+  );
+}
+
+/** Accept wa.me URL or raw phone (+92… / 03…) → https://wa.me/… */
+function normalizeWhatsAppUrl(raw: string) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  const digits = s.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return `https://wa.me/${digits}`;
 }
 
 function InstagramIcon() {

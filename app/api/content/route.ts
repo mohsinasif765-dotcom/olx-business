@@ -8,6 +8,7 @@ export async function GET() {
       {
         siteName: site.siteName,
         telegram: site.telegram,
+        whatsapp: site.whatsapp,
         handle: site.handle,
         cms: site.cms,
         faqs: site.faqs,

@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/i18n";
 import { debitWallet, loadWallets } from "@/lib/wallets";
 import { fetchContent } from "@/lib/fetch-content";
 import { postLedger } from "@/lib/ledger";
-import { isBankCurrency, normalizeWalletMode, type WalletMode } from "@/lib/currencies";
+import { isBankCurrency, moneyPrefix, normalizeWalletMode, type WalletMode } from "@/lib/currencies";
 import { CurrencySelect } from "@/components/CurrencySelect";
 
 export type WithdrawRecord = {
@@ -108,7 +108,14 @@ export function WithdrawScreen() {
 
   const usdtCoins = useMemo(() => coins.filter(isUsdtCoin), [coins]);
   const bankCoins = useMemo(() => coins.filter((c) => !isUsdtCoin(c)), [coins]);
-  const showTabs = usdtCoins.length > 0 && bankCoins.length > 0;
+  const showTabs = usdtCoins.length > 0 && bankCoins.length > 0 && walletMode === "dual";
+  const dual = walletMode === "dual";
+  const balanceCode = walletMode === "pkr" ? "PKR" : "USDT";
+  const balanceCash = moneyPrefix(balanceCode);
+  const balancePkr =
+    (walletMode === "usdt" || dual) && usdtToPkrRate > 0
+      ? Number((balance * usdtToPkrRate).toFixed(2))
+      : null;
 
   function selectTab(tab: PayoutTab) {
     setPayoutTab(tab);
@@ -224,9 +231,33 @@ export function WithdrawScreen() {
 
         <div className="wd-balance mb-4">
           <p className="text-[12px] text-white/55">{t.availableAssets}</p>
+          {dual ? (
+            <p className="mt-1 text-[11px] tracking-[0.14em] text-[#9ee7ff]/80">PKR + USDT</p>
+          ) : null}
           <p className="mt-2 text-[28px] font-semibold tracking-wide text-[#7ee0ff]">
-            {balance.toFixed(2)}
+            {balanceCode === "USDT"
+              ? `${balance.toFixed(2)} USDT`
+              : `${balanceCash} ${balance.toFixed(2)}`}
           </p>
+          {balancePkr != null && !dual ? (
+            <p className="mt-1.5 text-[13px] text-white/45">
+              ≈ Rs {balancePkr.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          ) : null}
+          {dual ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-black/20 px-3 py-2 text-center">
+                <p className="text-[10px] uppercase tracking-wide text-white/40">USDT</p>
+                <p className="mt-1 text-[14px] font-semibold text-white/90">{balance.toFixed(2)}</p>
+              </div>
+              <div className="rounded-xl bg-black/20 px-3 py-2 text-center">
+                <p className="text-[10px] uppercase tracking-wide text-white/40">PKR</p>
+                <p className="mt-1 text-[14px] font-semibold text-white/90">
+                  Rs {(balancePkr ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
