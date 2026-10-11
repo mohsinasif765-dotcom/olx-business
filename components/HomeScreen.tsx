@@ -22,6 +22,7 @@ export function HomeScreen() {
   const [logSnap, setLogSnap] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [wallets, setWallets] = useState({ invest: 0, brokerage: 0 });
+  const [packageProfit, setPackageProfit] = useState(0);
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
   const [siteName, setSiteName] = useState("OLX Business");
   const [whatsapp, setWhatsapp] = useState("");
@@ -56,6 +57,7 @@ export function HomeScreen() {
           usdtToPkrRate?: number;
           logs?: { user: string; amount: string }[];
           wallets?: { invest: number; brokerage: number; invite?: string };
+          packageProfit?: number;
         } | null) => {
           if (!data) {
             void loadWallets().then(setWallets);
@@ -80,6 +82,7 @@ export function HomeScreen() {
           } else {
             void loadWallets().then(setWallets);
           }
+          setPackageProfit(Number(data.packageProfit) || 0);
           const invite = data.wallets?.invite || "";
           setInviteHref(invite ? inviteLink(origin, invite) : `${origin}/register`);
         })
@@ -186,13 +189,13 @@ export function HomeScreen() {
               ) : null}
             </div>
             <div className="rounded-2xl bg-white/5 px-3 py-3 text-center">
-              <p className="text-[12px] text-white/55">{t.brokerageWallet}</p>
+              <p className="text-[12px] text-white/55">{t.totalProfit}</p>
               <p className="mt-2 text-[18px] font-medium text-[#c6b8ff]">
-                {cash} {wallets.brokerage.toFixed(2)}
+                {cash} {packageProfit.toFixed(2)}
               </p>
               {showPkrBeside ? (
                 <p className="mt-1 text-[11px] text-white/40">
-                  ≈ Rs {(wallets.brokerage * usdtToPkrRate).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                  ≈ Rs {(packageProfit * usdtToPkrRate).toLocaleString("en-US", { maximumFractionDigits: 0 })}
                 </p>
               ) : null}
             </div>

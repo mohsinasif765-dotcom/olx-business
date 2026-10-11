@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { resolveMemberDisplayCurrency } from "@/lib/currencies";
 import { readCoins, readSettings, readWithdraws } from "@/lib/server/db-tables";
+import { listHoldings } from "@/lib/server/holdings";
 import { adminUsdtFxTable } from "@/lib/server/live-fx";
+import { accruedProfitUsdt } from "@/lib/package-yield";
+import { settlePackageYield } from "@/lib/server/yield-cron";
 import { fillWithdrawLogs } from "@/lib/withdraw-logs";
 import { stripDemoRows } from "@/lib/server/strip-demo";
 import { zuvoAdmin } from "@/lib/zuvo";
@@ -9,6 +12,11 @@ import { zuvoAdmin } from "@/lib/zuvo";
 function money(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+}
+
+function money4(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Number(n.toFixed(4)) : 0;
 }
 
 function mask(account: string) {
@@ -93,6 +101,36 @@ export async function GET(request: Request) {
         }
       : { invest: 0, brokerage: 0, invite: "" };
 
+    let packageProfit = 0;
+    if (account) {
+      try {
+        await settlePackageYield({ account });
+      } catch {
+        /* optional */
+      }
+      try {
+        const holdings = await listHoldings(account);
+        packageProfit = money4(
+          holdings
+            .filter((h) => h.status !== "ended")
+            .reduce(
+              (sum, h) =>
+                sum +
+                accruedProfitUsdt({
+                  returns: h.returns,
+                  term: h.term,
+                  earnedTotal: h.earnedTotal,
+                  lastPayoutAt: h.lastPayoutAt,
+                  startedAt: h.startedAt,
+                }),
+              0,
+            ),
+        );
+      } catch {
+        packageProfit = 0;
+      }
+    }
+
     return NextResponse.json({
       siteName: settings?.siteName || "OLX Business",
       users: stats.users,
@@ -104,6 +142,7 @@ export async function GET(request: Request) {
       usdtFx,
       logs,
       wallets,
+      packageProfit,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zuvo read failed";
