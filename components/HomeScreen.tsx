@@ -24,7 +24,6 @@ export function HomeScreen() {
   const [wallets, setWallets] = useState({ invest: 0, brokerage: 0 });
   const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
   const [siteName, setSiteName] = useState("OLX Business");
-  const [stats, setStats] = useState({ users: 0, revenue: 0 });
   const [whatsapp, setWhatsapp] = useState("");
   const [currency, setCurrency] = useState("PKR");
   const [walletMode, setWalletMode] = useState("pkr");
@@ -51,8 +50,6 @@ export function HomeScreen() {
         .then((res) => (res.ok ? res.json() : null))
         .then((data: {
           siteName?: string;
-          users?: number;
-          revenue?: number;
           whatsapp?: string;
           displayCurrency?: string;
           walletMode?: string;
@@ -75,7 +72,6 @@ export function HomeScreen() {
           setCurrency(code);
           rememberFundCurrency(code);
           if (data.usdtToPkrRate) setUsdtToPkrRate(Number(data.usdtToPkrRate) || 280);
-          setStats({ users: Number(data.users) || 0, revenue: Number(data.revenue) || 0 });
           const incoming = Array.isArray(data.logs) ? data.logs : [];
           const hasFiat = incoming.some((row) => !/USDT\s*$/i.test(row.amount));
           setLogs(hasFiat ? fillWithdrawLogs(incoming) : SAMPLE_WITHDRAW_LOGS);
@@ -214,7 +210,7 @@ export function HomeScreen() {
           </div>
         </section>
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="mb-4">
           {whatsapp ? (
             <a
               href={whatsapp}
@@ -237,12 +233,6 @@ export function HomeScreen() {
               <p className="mt-1 text-[12px] leading-4 text-white/45">Admin → Brand → Save link</p>
             </div>
           )}
-          <StatCard
-            icon={<RevenueIcon />}
-            value={stats.revenue}
-            label={t.cumulativeRevenue}
-            prefix={cash}
-          />
         </div>
 
         <section className="mb-5">
@@ -335,58 +325,6 @@ export function HomeScreen() {
       </div>
     </div>
   );
-}
-
-function StatCard({
-  icon,
-  value,
-  label,
-  prefix,
-}: {
-  icon: ReactNode;
-  value: number;
-  label: string;
-  prefix?: string;
-}) {
-  const shown = useCountUp(value, 1800);
-
-  return (
-    <div className="stat-card flex flex-col items-center rounded-[22px] px-3 py-5 text-center">
-      <span className="stat-icon mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-full">
-        {icon}
-      </span>
-      {prefix ? <p className="text-[13px] font-semibold text-white/90">{prefix}</p> : null}
-      <p className={`font-semibold leading-tight ${prefix ? "text-[18px]" : "text-[20px]"}`}>
-        {shown.toLocaleString("en-US", prefix
-          ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-          : { maximumFractionDigits: 0 })}
-      </p>
-      <p className="mt-1 text-[12px] leading-4 text-white/55">{label}</p>
-    </div>
-  );
-}
-
-function useCountUp(target: number, duration: number) {
-  const [value, setValue] = useState(0);
-
-  useEffect(() => {
-    const start = performance.now();
-    let frame = 0;
-
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration);
-      const eased = 1 - (1 - progress) ** 3;
-      setValue(target * eased);
-      if (progress < 1) {
-        frame = requestAnimationFrame(tick);
-      }
-    };
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [target, duration]);
-
-  return value;
 }
 
 function CopyShareButton({ link }: { link: string }) {
@@ -624,25 +562,3 @@ function AppIcon() {
   );
 }
 
-function UsersIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <circle cx="9" cy="7.2" r="3.1" />
-      <circle cx="16.4" cy="8" r="2.35" />
-      <path d="M1.9 19.3c0-3.5 3.2-6.1 7.1-6.1s7.1 2.6 7.1 6.1v.4H1.9v-.4z" />
-      <path d="M15.2 13.6c2.9.4 5.1 2.6 5.1 5.7v.4H16v-.4c0-2.1-.8-3.9-2.2-5.2.5-.3.9-.4 1.4-.5z" />
-    </svg>
-  );
-}
-
-function RevenueIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12.1 2.6c-.6 1.6-1.7 2.7-1.7 4.1 0 .7.3 1.3.7 1.8h-1.8C7 8.6 5.4 10.5 5.4 13.2 5.4 17 8.3 21.3 12 21.3s6.6-4.3 6.6-8.1c0-2.7-1.6-4.6-3.9-4.7h-1.8c.4-.5.7-1.1.7-1.8 0-1.4-1.1-2.5-1.7-4.1h-.8z" />
-      <path
-        d="M12 10.4c-1.7 0-2.7.9-2.7 2.1 0 .9.6 1.5 1.8 1.8l.9.2c.6.14 1 .4 1 .8 0 .5-.5.8-1.2.8-.8 0-1.3-.3-1.6-.8l-1.2.5c.4.9 1.3 1.5 2.5 1.6v1.1h1.4v-1.1c1.5-.2 2.5-1.1 2.5-2.3 0-1.1-.7-1.7-2-2l-.9-.22c-.7-.16-1-.4-1-.8 0-.4.4-.7 1.1-.7.7 0 1.2.3 1.4.7l1.2-.5c-.4-.8-1.2-1.3-2.4-1.4v-1h-1.4v1z"
-        fill="#2f7bff"
-      />
-    </svg>
-  );
-}
