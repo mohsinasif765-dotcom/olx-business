@@ -22,7 +22,7 @@ export type WithdrawRecord = {
   at: string;
 };
 
-type CoinOpt = { id: string; name: string; network?: string; payKind?: string };
+type CoinOpt = { id: string; name: string; network?: string; payKind?: string; usdtRate?: number };
 type PayoutTab = "USDT" | "Bank";
 
 function isUsdtCoin(c: CoinOpt) {
@@ -129,8 +129,7 @@ export function WithdrawScreen() {
 
   const selected = coins.find((c) => c.name === coin) || coins[0];
   const bankMode = selected ? isBankCurrency(selected.id, selected.name) : true;
-  const showPkrEstimate =
-    bankMode && (walletMode === "usdt" || walletMode === "dual") && usdtToPkrRate > 0;
+  const receiveCode = String(selected?.name || coin || "USDT").toUpperCase().split(/\s+/)[0] || "USDT";
 
   const parsedAmount = Number(amount);
   const arrival = useMemo(() => {
@@ -138,10 +137,20 @@ export function WithdrawScreen() {
     return Math.max(0, parsedAmount - fee);
   }, [parsedAmount, fee]);
 
-  const estimatedPkr = useMemo(() => {
-    if (!showPkrEstimate || arrival <= 0) return 0;
-    return Number((arrival * usdtToPkrRate).toFixed(2));
-  }, [showPkrEstimate, arrival, usdtToPkrRate]);
+  const railUsdtRate = useMemo(() => {
+    const fromRail = Number(selected?.usdtRate) || 0;
+    if (fromRail > 0) return fromRail;
+    if (!bankMode || receiveCode === "USDT" || receiveCode === "USD") return 1;
+    if (receiveCode === "PKR" && usdtToPkrRate > 0) return usdtToPkrRate;
+    return 0;
+  }, [selected?.usdtRate, bankMode, receiveCode, usdtToPkrRate]);
+
+  const receiveAmount = useMemo(() => {
+    if (arrival <= 0) return 0;
+    if (!bankMode || receiveCode === "USDT") return arrival;
+    if (railUsdtRate <= 0) return 0;
+    return Number((arrival * railUsdtRate).toFixed(2));
+  }, [arrival, bankMode, receiveCode, railUsdtRate]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -204,8 +213,12 @@ export function WithdrawScreen() {
         address: address.trim(),
         status: "pending",
       });
+      const receiveQ =
+        receiveCode !== "USDT" && receiveAmount > 0
+          ? `&receive=${encodeURIComponent(receiveAmount.toFixed(2))}&receiveCode=${encodeURIComponent(receiveCode)}`
+          : "";
       router.push(
-        `/withdraw/result?amount=${item.amount}&wallet=${encodeURIComponent(coin)}&arrival=${item.arrival}`
+        `/withdraw/result?amount=${item.amount}&wallet=USDT&arrival=${item.arrival}${receiveQ}`
       );
     });
   }
@@ -314,15 +327,18 @@ export function WithdrawScreen() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-[12px] text-white/55">{t.transferAmount}</span>
+            <span className="mb-2 block text-[12px] text-white/55">{t.transferAmountUsdt}</span>
             <div className="relative">
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="wd-input pr-16"
+                className="wd-input pr-28"
                 inputMode="decimal"
               />
+              <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-white/45">
+                USDT
+              </span>
               <button
                 type="button"
                 className="wd-all"
@@ -331,14 +347,51 @@ export function WithdrawScreen() {
                 {t.all}
               </button>
             </div>
+            {parsedAmount > 0 ? (
+              <div className="mt-2 space-y-0.5">
+                {!bankMode || receiveCode === "USDT" ? (
+                  <p className="text-[12px] font-medium text-[#9ee7ff]">
+                    {t.withdrawYouReceive
+                      .replace("{amount}", arrival.toFixed(2))
+                      .replace("{code}", "USDT")}
+                  </p>
+                ) : railUsdtRate > 0 && receiveAmount > 0 ? (
+                  <>
+                    <p className="text-[12px] font-medium text-[#9ee7ff]">
+                      {t.estimatedReceive
+                        .replace(
+                          "{amount}",
+                          receiveAmount.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }),
+                        )
+                        .replace("{code}", receiveCode)}
+                    </p>
+                    <p className="text-[11px] text-white/40">
+                      {t.oneUsdtEquals
+                        .replace(
+                          "{rate}",
+                          railUsdtRate.toLocaleString("en-US", { maximumFractionDigits: 4 }),
+                        )
+                        .replace("{code}", receiveCode)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-[#ffd27a]">
+                    {t.withdrawRateNotSet.replace("{code}", receiveCode)}
+                  </p>
+                )}
+              </div>
+            ) : null}
           </label>
 
           <div className="flex justify-between text-[12px] text-white/50">
             <span>
-              {t.minWithdraw}: {minPayout.toFixed(2)} {coin}
+              {t.minWithdraw}: {minPayout.toFixed(2)} USDT
             </span>
             <span>
-              {t.handlingFee}: {fee.toFixed(0)} {coin}
+              {t.handlingFee}: {fee.toFixed(0)} USDT
             </span>
           </div>
 
@@ -362,22 +415,10 @@ export function WithdrawScreen() {
             </div>
           </label>
 
-          <p className="text-right text-[12px] text-white/55">
-            {t.actualArrival}: {arrival.toFixed(2)} {coin}
-          </p>
-
-          {showPkrEstimate && arrival > 0 ? (
-            <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3">
-              <p className="text-[11px] uppercase tracking-wide text-emerald-200/70">
-                Estimated PKR
-              </p>
-              <p className="mt-1 text-[20px] font-semibold text-emerald-200">
-                Rs {estimatedPkr.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-              <p className="mt-1 text-[11px] text-white/45">
-                Rate 1 USDT ≈ Rs {usdtToPkrRate.toLocaleString("en-US")}
-              </p>
-            </div>
+          {arrival > 0 && bankMode && receiveCode !== "USDT" ? (
+            <p className="text-right text-[12px] text-white/55">
+              {t.actualArrival}: {arrival.toFixed(2)} USDT
+            </p>
           ) : null}
 
           {error ? (

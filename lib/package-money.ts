@@ -42,6 +42,15 @@ export function convertUsdtAmount(amountUsdt: number, code: string, fx: UsdtFxTa
   return unit > 0 ? n * unit : n;
 }
 
+/** Rail currency amount → USDT (deposit credit preview). */
+export function convertRailToUsdt(amountRail: number, code: string, fx: UsdtFxTable = DEFAULT_FX): number {
+  const n = Number(amountRail);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  const unit = usdtPerUnit(code, fx);
+  if (!(unit > 0)) return 0;
+  return Number((n / unit).toFixed(4));
+}
+
 function prettyAmount(n: number, code: string): string {
   const c = normalizeCurrencyCode(code) || "USDT";
   if (c === "USDT" || c === "USD") {

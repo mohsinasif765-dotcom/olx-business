@@ -66,22 +66,31 @@ export async function readSite() {
   const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
   const usdtFx = adminUsdtFxTable(usdtToPkrRate);
   // Fund / withdraw rails follow admin Currency mode (PKR | USDT | dual).
-  const liveCoins = filterCoinsByWalletMode(coins, walletMode).map((c) => ({
-    id: String(c.id),
-    name: String(c.name),
-    network: String(c.network || "Bank"),
-    min: String(c.min || "1"),
-    address: String(c.address || ""),
-    enabled: true,
-    payKind: c.payKind,
-    bankName: String(c.bankName || ""),
-    accountName: String(c.accountName || ""),
-    accountNumber: String(c.accountNumber || ""),
-    iban: String(c.iban || ""),
-    swift: String(c.swift || ""),
-    branch: String(c.branch || ""),
-    instructions: String(c.instructions || ""),
-  }));
+  const liveCoins = filterCoinsByWalletMode(coins, walletMode).map((c) => {
+    const id = String(c.id).toLowerCase();
+    let usdtRate = Number(c.usdtRate) || 0;
+    if (usdtRate <= 0) {
+      if (id === "usdt" || id === "usd") usdtRate = 1;
+      else if (id === "pkr" || id.startsWith("pkr-")) usdtRate = usdtToPkrRate;
+    }
+    return {
+      id: String(c.id),
+      name: String(c.name),
+      network: String(c.network || "Bank"),
+      min: String(c.min || "1"),
+      address: String(c.address || ""),
+      enabled: true,
+      payKind: c.payKind,
+      bankName: String(c.bankName || ""),
+      accountName: String(c.accountName || ""),
+      accountNumber: String(c.accountNumber || ""),
+      iban: String(c.iban || ""),
+      swift: String(c.swift || ""),
+      branch: String(c.branch || ""),
+      instructions: String(c.instructions || ""),
+      usdtRate,
+    };
+  });
 
   return {
     siteName: String(settings?.siteName || "OLX Business"),

@@ -143,7 +143,8 @@ create table if not exists public.pay_rails (
   iban text not null default '',
   swift text not null default '',
   branch text not null default '',
-  instructions text not null default ''
+  instructions text not null default '',
+  usdt_rate numeric not null default 0
 );
 
 create table if not exists public.cms_pages (

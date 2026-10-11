@@ -60,6 +60,7 @@ function RechargeDetail() {
     swift: "",
     branch: "",
     instructions: "",
+    usdtRate: isCryptoId(fallback.id) ? 1 : 0,
   });
   const [paused, setPaused] = useState(false);
   const [copied, setCopied] = useState("");
@@ -92,6 +93,7 @@ function RechargeDetail() {
             ...row,
             symbol: code,
             payKind,
+            usdtRate: Number(row.usdtRate) || (code === "USDT" || code === "USD" ? 1 : 0),
           });
           rememberFundCurrency(code);
         }
@@ -101,6 +103,17 @@ function RechargeDetail() {
 
   const dest = payDestination(asset);
   const crypto = asset.payKind === "crypto" || isCryptoId(asset.id);
+  const railUsdtRate =
+    Number(asset.usdtRate) > 0
+      ? Number(asset.usdtRate)
+      : asset.symbol === "USDT" || asset.symbol === "USD"
+        ? 1
+        : Number(fx.PKR) > 0 && asset.symbol === "PKR"
+          ? Number(fx.PKR)
+          : 0;
+  const amountN = Number(amount) || 0;
+  const estimatedUsdt =
+    amountN > 0 && railUsdtRate > 0 ? Number((amountN / railUsdtRate).toFixed(4)) : 0;
   const minN = depositMinForRail(asset.min, asset.symbol);
   const minLabel = formatMoneyLabel(minN, asset.symbol);
   const selectHref = useMemo(() => {
@@ -355,6 +368,30 @@ function RechargeDetail() {
                 </button>
               ))}
             </div>
+            {estimatedUsdt > 0 ? (
+              <div className="mt-2 space-y-0.5">
+                <p className="text-[12px] font-medium text-[#9ee7ff]">
+                  {t.estimatedDepositUsdt.replace(
+                    "{usdt}",
+                    estimatedUsdt.toLocaleString("en-US", { maximumFractionDigits: 4 }),
+                  )}
+                </p>
+                {railUsdtRate > 0 ? (
+                  <p className="text-[11px] text-white/40">
+                    {t.oneUsdtEquals
+                      .replace("{rate}", railUsdtRate.toLocaleString("en-US", { maximumFractionDigits: 4 }))
+                      .replace("{code}", asset.symbol)}
+                    {" · "}
+                    {t.creditAfterApprove.replace(
+                      "{usdt}",
+                      estimatedUsdt.toLocaleString("en-US", { maximumFractionDigits: 4 }),
+                    )}
+                  </p>
+                ) : null}
+              </div>
+            ) : amountN > 0 ? (
+              <p className="mt-2 text-[11px] text-[#ffd27a]">Admin has not set 1 USDT rate for {asset.symbol} yet.</p>
+            ) : null}
           </div>
           <label className="block">
             <span className="mb-1 block text-[12px] text-white/55">

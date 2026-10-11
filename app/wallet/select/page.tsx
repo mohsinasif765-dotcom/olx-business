@@ -5,7 +5,6 @@ import { Suspense, useEffect, useState } from "react";
 import { BackHeader } from "@/components/BackHeader";
 import { CurrencyFlag } from "@/components/CurrencyFlag";
 import { rememberFundCurrency } from "@/lib/display-currency";
-import { fetchContent } from "@/lib/fetch-content";
 import {
   currencyCodeFromRail,
   formatMoneyLabel,
@@ -14,6 +13,7 @@ import {
 } from "@/lib/currencies";
 import { useFundTarget } from "@/lib/fund-target";
 import { useLanguage } from "@/lib/i18n";
+import { getSessionAccount } from "@/lib/session";
 
 type Coin = CurrencyRow;
 
@@ -33,12 +33,23 @@ function RechargeSelect() {
   const [hint, setHint] = useState("");
 
   useEffect(() => {
-    void fetchContent()
+    // Always load pay rails from content (no client cache) so Fund never sticks empty.
+    void fetch("/api/content", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data: { flags?: { rechargeOn?: boolean }; coins?: Coin[] } | null) => {
         if (data?.flags?.rechargeOn === false) setHint("Funding is paused in admin settings.");
-        setCoins(Array.isArray(data?.coins) ? data.coins : []);
+        const list = Array.isArray(data?.coins) ? data.coins : [];
+        setCoins(list);
+        if (list.length === 0 && getSessionAccount()) {
+          const qs = `?account=${encodeURIComponent(getSessionAccount() || "")}`;
+          return fetch(`/api/me${qs}`, { cache: "no-store" })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((me: { coins?: Coin[] } | null) => {
+              if (Array.isArray(me?.coins) && me.coins.length) setCoins(me.coins);
+            });
+        }
       })
-      .catch(() => {});
+      .catch(() => setCoins([]));
   }, []);
 
   return (

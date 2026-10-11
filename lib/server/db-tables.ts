@@ -55,6 +55,8 @@ export type CoinRow = {
   swift: string;
   branch: string;
   instructions: string;
+  /** 1 USDT = usdtRate units of this rail (0 = unset). */
+  usdtRate: number;
 };
 
 export type CmsPage = { slug: string; title: string; body: string };
@@ -247,6 +249,7 @@ export function mapCoin(row: Record<string, unknown>): CoinRow {
     swift: String(row.swift || ""),
     branch: String(row.branch || ""),
     instructions: String(row.instructions || ""),
+    usdtRate: money(row.usdt_rate ?? row.usdtRate),
   };
 }
 
@@ -266,6 +269,7 @@ export function coinToRow(c: CoinRow) {
     swift: c.swift,
     branch: c.branch,
     instructions: c.instructions,
+    usdt_rate: money(c.usdtRate),
   };
 }
 

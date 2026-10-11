@@ -13,6 +13,8 @@ export type CurrencyRow = {
   swift?: string;
   branch?: string;
   instructions?: string;
+  /** 1 USDT = usdtRate units of this rail. */
+  usdtRate?: number;
 };
 
 export function isCryptoId(id: string) {
@@ -139,6 +141,7 @@ export function migrateCurrencies(rows: CurrencyRow[] | undefined | null): Curre
     .filter((row) => !LEGACY_CRYPTO.has(String(row.id || "").toLowerCase()))
     .map((row) => {
       const id = normalizeId(row);
+      const rate = Number(row.usdtRate);
       return repairPakistanMislabel({
         id,
         name: String(row.name || "").toUpperCase() || id.toUpperCase(),
@@ -146,6 +149,7 @@ export function migrateCurrencies(rows: CurrencyRow[] | undefined | null): Curre
         min: String(row.min || "1"),
         address: String(row.address || row.accountNumber || ""),
         enabled: row.enabled !== false,
+        usdtRate: Number.isFinite(rate) && rate > 0 ? rate : 0,
         ...rail(row, id),
       });
     });
@@ -192,11 +196,13 @@ export function filterCoinsByWalletMode(
   const walletMode = normalizeWalletMode(mode);
   if (walletMode === "pkr") {
     // All fiat / bank rails (JazzCash, EasyPaisa, PKR…) — hide crypto/USDT
-    return list.filter((row) => !isUsdtRow(row));
+    const fiat = list.filter((row) => !isUsdtRow(row));
+    return fiat.length > 0 ? fiat : list;
   }
   if (walletMode === "usdt") {
-    // Crypto / USDT rails only
-    return list.filter(isUsdtRow);
+    // Crypto / USDT rails only — if none configured, keep Fund usable with enabled rails
+    const crypto = list.filter(isUsdtRow);
+    return crypto.length > 0 ? crypto : list;
   }
   // dual: every enabled rail
   return list;

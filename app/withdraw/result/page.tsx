@@ -16,9 +16,13 @@ export default function Page() {
 function WithdrawResult() {
   const { t } = useLanguage();
   const params = useSearchParams();
-  const amount = params.get("amount") || "0.000000";
+  const amount = params.get("amount") || "0.00";
   const wallet = params.get("wallet") || "USDT";
-  const arrival = params.get("arrival") || "0.000000";
+  const arrival = params.get("arrival") || amount;
+  const receive = params.get("receive");
+  const receiveCode = (params.get("receiveCode") || "").toUpperCase();
+  const showReceive =
+    Boolean(receive) && receiveCode && receiveCode !== "USDT" && receiveCode !== wallet;
 
   return (
     <div className="star-field">
@@ -29,10 +33,18 @@ function WithdrawResult() {
           </div>
           <h1 className="text-[20px] font-semibold">{t.submitted}</h1>
           <p className="mt-2 text-[13px] text-[#ffd27a]">{t.resultPending}</p>
-          <p className="mt-5 text-[28px] font-semibold">{amount} {wallet}</p>
-          <p className="mt-3 text-[12px] text-white/50">
-            {t.actualArrival}: {arrival} {wallet}
+          <p className="mt-5 text-[28px] font-semibold">
+            {amount} {wallet === "USDT" ? "USDT" : wallet}
           </p>
+          {showReceive ? (
+            <p className="mt-3 text-[13px] font-medium text-[#9ee7ff]">
+              {t.estimatedReceive.replace("{amount}", receive!).replace("{code}", receiveCode)}
+            </p>
+          ) : (
+            <p className="mt-3 text-[12px] text-white/50">
+              {t.actualArrival}: {arrival} USDT
+            </p>
+          )}
         </div>
 
         <div className="mt-5 space-y-3">
