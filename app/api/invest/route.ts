@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buyPackage, listHoldings } from "@/lib/server/holdings";
+import { settlePackageYield } from "@/lib/server/yield-cron";
 import { zuvoAdmin } from "@/lib/zuvo";
 
 function key(account: string) {
@@ -15,6 +16,11 @@ export async function GET(request: Request) {
   const account = key(new URL(request.url).searchParams.get("account") || "");
   if (!account) return NextResponse.json({ error: "required" }, { status: 400 });
   try {
+    try {
+      await settlePackageYield({ account });
+    } catch {
+      /* yield catch-up optional until SQL columns exist */
+    }
     const [holdings, member] = await Promise.all([
       listHoldings(account),
       zuvoAdmin().from("members").select("invest,brokerage,vip,status").eq("account", account).maybeSingle(),

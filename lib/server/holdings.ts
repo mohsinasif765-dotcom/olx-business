@@ -82,6 +82,7 @@ export async function buyPackage(input: { account: string; planId: string; catal
     .eq("account", account);
   if (walletError) throw walletError;
 
+  const startedAt = new Date().toISOString();
   const holding: CarHolding = {
     id: `h${Date.now().toString(36)}`,
     account,
@@ -94,7 +95,9 @@ export async function buyPackage(input: { account: string; planId: string; catal
     term: String(plan.term),
     image: holdingImage(catalog, String(plan.id), String(plan.image || "")),
     status: "active",
-    startedAt: new Date().toISOString(),
+    startedAt,
+    earnedTotal: 0,
+    lastPayoutAt: startedAt,
   };
   if (catalog === "shop") await insertShopHolding(holding);
   else await insertHolding(holding);

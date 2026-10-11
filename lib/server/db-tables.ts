@@ -103,6 +103,9 @@ export type HoldingRow = {
   image: string;
   status: "active" | "ended";
   startedAt: string;
+  /** Accrued yield credited to invest wallet (USDT). */
+  earnedTotal: number;
+  lastPayoutAt: string;
 };
 export type AuditRow = { id: string; at: string; actor: string; action: string; target: string; amount?: string };
 export type ActivityState = Record<string, { checkin?: { date: string; streak: number }; lucky?: { date: string; prize: string } }>;
@@ -265,6 +268,7 @@ export function coinToRow(c: CoinRow) {
 }
 
 export function mapHolding(row: Record<string, unknown>): HoldingRow {
+  const started = String(row.started_at || row.startedAt || "");
   return {
     id: String(row.id),
     account: String(row.account),
@@ -277,7 +281,9 @@ export function mapHolding(row: Record<string, unknown>): HoldingRow {
     term: String(row.term || ""),
     image: String(row.image || ""),
     status: row.status === "ended" ? "ended" : "active",
-    startedAt: String(row.started_at || row.startedAt || ""),
+    startedAt: started,
+    earnedTotal: money(row.earned_total ?? row.earnedTotal),
+    lastPayoutAt: String(row.last_payout_at || row.lastPayoutAt || started || ""),
   };
 }
 
@@ -295,6 +301,8 @@ export function holdingToRow(h: HoldingRow) {
     image: h.image,
     status: h.status,
     started_at: h.startedAt,
+    earned_total: money(h.earnedTotal),
+    last_payout_at: h.lastPayoutAt || h.startedAt,
   };
 }
 
@@ -646,9 +654,27 @@ export async function readHoldings(account?: string) {
   return (data || []).map((row) => mapHolding(row as Record<string, unknown>));
 }
 
+function holdingToRowLegacy(h: HoldingRow) {
+  const full = holdingToRow(h);
+  const { earned_total: _e, last_payout_at: _l, ...rest } = full;
+  return rest;
+}
+
+async function upsertHoldingTable(table: "car_holdings" | "shop_holdings", row: HoldingRow) {
+  const full = holdingToRow(row);
+  const { error } = await db().from(table).upsert(full);
+  if (!error) return;
+  const msg = String(error.message || "");
+  if (msg.includes("earned_total") || msg.includes("last_payout_at")) {
+    const { error: retry } = await db().from(table).upsert(holdingToRowLegacy(row));
+    if (retry) throw retry;
+    return;
+  }
+  throw error;
+}
+
 export async function insertHolding(row: HoldingRow) {
-  const { error } = await db().from("car_holdings").upsert(holdingToRow(row));
-  if (error) throw error;
+  await upsertHoldingTable("car_holdings", row);
 }
 
 export async function readShopHoldings(account?: string) {
@@ -660,8 +686,7 @@ export async function readShopHoldings(account?: string) {
 }
 
 export async function insertShopHolding(row: HoldingRow) {
-  const { error } = await db().from("shop_holdings").upsert(holdingToRow(row));
-  if (error) throw error;
+  await upsertHoldingTable("shop_holdings", row);
 }
 
 export async function writeHoldings(rows: HoldingRow[]) {

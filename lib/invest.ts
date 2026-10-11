@@ -14,6 +14,8 @@ export type CarHolding = {
   image: string;
   status: "active" | "ended";
   startedAt: string;
+  earnedTotal?: number;
+  lastPayoutAt?: string;
 };
 
 export async function loadGarage() {

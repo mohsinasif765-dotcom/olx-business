@@ -89,7 +89,9 @@ export function formatPackageMoneyText(
 /** Single USDT amount → display label (fund hints, need messages). */
 export function formatUsdtAsDisplay(amountUsdt: number, displayCode: string, fx: UsdtFxTable = DEFAULT_FX): string {
   const code = effectiveDisplayCode(displayCode, fx);
-  return labelAmount(convertUsdtAmount(amountUsdt, code, fx), code);
+  const n = Number(amountUsdt);
+  if (!Number.isFinite(n) || n <= 0) return labelAmount(0, code);
+  return labelAmount(convertUsdtAmount(n, code, fx), code);
 }
 
 /** Deposit min on a pay rail: plan need is USDT; convert when rail is not USDT. */

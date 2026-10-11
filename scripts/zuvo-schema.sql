@@ -46,7 +46,9 @@ create table if not exists public.car_holdings (
   term text not null,
   image text not null,
   status text not null default 'active',
-  started_at timestamptz not null default now()
+  started_at timestamptz not null default now(),
+  earned_total numeric not null default 0,
+  last_payout_at timestamptz
 );
 
 create table if not exists public.shop_packages (
@@ -73,7 +75,9 @@ create table if not exists public.shop_holdings (
   term text not null,
   image text not null,
   status text not null default 'active',
-  started_at timestamptz not null default now()
+  started_at timestamptz not null default now(),
+  earned_total numeric not null default 0,
+  last_payout_at timestamptz
 );
 
 create table if not exists public.site_settings (

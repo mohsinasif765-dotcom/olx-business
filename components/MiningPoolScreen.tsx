@@ -6,6 +6,12 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { holdingImageFallback, isShopKind, normalizeHoldingImage } from "@/lib/holding-image";
 import { type CarHolding, loadGarage } from "@/lib/invest";
+import {
+  accruedProfitUsdt,
+  hourlyReturnUsdt,
+  parseDailyReturnUsdt,
+  todayProfitUsdt,
+} from "@/lib/package-yield";
 import { useCarPlans } from "@/lib/use-car-plans";
 import { useLanguage } from "@/lib/i18n";
 import { usePackageFx } from "@/lib/use-package-fx";
@@ -23,24 +29,34 @@ function kindLabel(
 export function MiningPoolScreen() {
   const { t } = useLanguage();
   const { settings, loaded: plansLoaded } = useCarPlans();
-  const { money, cash } = usePackageFx();
+  const { money, cash, fromUsdt } = usePackageFx();
   const [holdings, setHoldings] = useState<CarHolding[]>([]);
   const [invest, setInvest] = useState(0);
   const [ready, setReady] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    void loadGarage().then((data) => {
-      setAccount(data.account);
-      setHoldings(
-        data.holdings.map((row) => ({
-          ...row,
-          image: normalizeHoldingImage(row),
-        }))
-      );
-      setInvest(data.wallets.invest);
-      setReady(true);
-    });
+    function refresh() {
+      void loadGarage().then((data) => {
+        setAccount(data.account);
+        setHoldings(
+          data.holdings.map((row) => ({
+            ...row,
+            image: normalizeHoldingImage(row),
+          }))
+        );
+        setInvest(data.wallets.invest);
+        setReady(true);
+      });
+    }
+    refresh();
+    const poll = window.setInterval(refresh, 60_000);
+    const clock = window.setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => {
+      window.clearInterval(poll);
+      window.clearInterval(clock);
+    };
   }, []);
 
   const active = holdings.filter((row) => row.status !== "ended");
@@ -125,6 +141,18 @@ export function MiningPoolScreen() {
           ) : (
             active.map((plan) => {
               const src = normalizeHoldingImage(plan);
+              const daily = parseDailyReturnUsdt(plan.returns);
+              const hourly = hourlyReturnUsdt(daily);
+              const yieldInput = {
+                returns: plan.returns,
+                term: plan.term,
+                earnedTotal: plan.earnedTotal,
+                lastPayoutAt: plan.lastPayoutAt,
+                startedAt: plan.startedAt,
+              };
+              void tick;
+              const today = todayProfitUsdt(yieldInput);
+              const total = accruedProfitUsdt(yieldInput);
               return (
                 <article key={plan.id} className="car-card">
                   <div className="car-photo bg-white/5" style={{ height: 120 }}>
@@ -150,7 +178,21 @@ export function MiningPoolScreen() {
                     <p className="mt-1 text-[12px] text-white/50">
                       {money(plan.invest)} · {plan.term}
                     </p>
-                    <p className="mt-1 text-[12px] text-[#3dff9a]">Expected {money(plan.returns)}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[12px]">
+                      <span className="text-white/50">{t.hourlyIncome}</span>
+                      <span className="font-medium text-[#3dff9a]">{fromUsdt(hourly)}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-[12px]">
+                      <span className="text-white/50">{t.todayProfit}</span>
+                      <span className="font-medium text-[#3dff9a]">{fromUsdt(today)}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-[12px]">
+                      <span className="text-white/50">{t.totalProfit}</span>
+                      <span className="font-medium text-[#3dff9a]">{fromUsdt(total)}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-white/35">
+                      {t.dailyIncome} {money(plan.returns)}
+                    </p>
                   </div>
                 </article>
               );
