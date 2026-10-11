@@ -1,7 +1,6 @@
 import { resolveMemberDisplayCurrency } from "@/lib/currencies";
 import { zuvoAdmin } from "@/lib/zuvo";
 import { readCoins, readRecharges, readSettings, readWithdraws } from "@/lib/server/db-tables";
-import { resolveUsdtFxTable } from "@/lib/server/live-fx";
 
 export type TeamMember = {
   account: string;
@@ -90,11 +89,7 @@ export async function loadTeam(account: string, date = "", level?: string) {
     walletMode: settings?.walletMode,
     deposits: myDeposits,
   });
-  const usdtFx = await resolveUsdtFxTable(
-    Number(settings?.usdtToPkrRate) || 280,
-    settings?.usdtRateAuto !== false,
-  );
-  const usdtToPkrRate = Number(usdtFx.PKR) || 280;
+  const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
 
   const rows: TeamMember[] = (members || []).map((row) => ({
     account: key(String(row.account)),

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buyPackage, listHoldings } from "@/lib/server/holdings";
-import { settlePackageYield } from "@/lib/server/yield-cron";
+import { claimHoldingProfit, settlePackageYield } from "@/lib/server/yield-cron";
 import { zuvoAdmin } from "@/lib/zuvo";
 
 function key(account: string) {
@@ -39,16 +39,47 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  let body: { account?: string; planId?: string; catalog?: string };
+  let body: {
+    account?: string;
+    planId?: string;
+    catalog?: string;
+    action?: string;
+    holdingId?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "required" }, { status: 400 });
   }
   const account = key(String(body.account || ""));
+  if (!account) return NextResponse.json({ error: "required" }, { status: 400 });
+
+  if (String(body.action || "") === "claim") {
+    const holdingId = String(body.holdingId || "").trim();
+    if (!holdingId) return NextResponse.json({ error: "required" }, { status: 400 });
+    try {
+      const result = await claimHoldingProfit({ account, holdingId });
+      if (!result.ok) {
+        const status =
+          result.error === "login"
+            ? 401
+            : result.error === "forbidden"
+              ? 403
+              : result.error === "early"
+                ? 400
+                : 400;
+        return NextResponse.json(result, { status });
+      }
+      return NextResponse.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Zuvo write failed";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
   const planId = String(body.planId || "").trim();
   const catalog = body.catalog === "shop" ? "shop" : "car";
-  if (!account || !planId) return NextResponse.json({ error: "required" }, { status: 400 });
+  if (!planId) return NextResponse.json({ error: "required" }, { status: 400 });
   try {
     const result = await buyPackage({ account, planId, catalog });
     if (!result.ok) {

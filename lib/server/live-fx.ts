@@ -81,12 +81,18 @@ export async function fetchLiveUsdtPkrRate(force = false): Promise<LiveUsdtPkr |
   return null;
 }
 
-/** Prefer live market when auto; otherwise saved fallback. */
-export async function resolveUsdtToPkrRate(fallback: number, auto = true): Promise<number> {
+/** Admin-saved rate only (member panel). Live market is opt-in via auto=true (admin tools). */
+export async function resolveUsdtToPkrRate(fallback: number, auto = false): Promise<number> {
   const safe = Number(fallback) > 0 ? Number(fallback) : 280;
   if (!auto) return safe;
   const live = await fetchLiveUsdtPkrRate();
   return live?.rate || safe;
+}
+
+/** Fixed FX table from admin Settings — no internet rates. */
+export function adminUsdtFxTable(fallbackPkr: number): Record<string, number> {
+  const pkr = Number(fallbackPkr) > 0 ? Number(Number(fallbackPkr).toFixed(2)) : 280;
+  return { USDT: 1, USD: 1, PKR: pkr };
 }
 
 const FX_CODES = ["pkr", "usd", "eur", "gbp", "aed", "sar", "inr", "bdt", "cny"] as const;
@@ -95,12 +101,14 @@ type UsdtBasketCache = { rates: Record<string, number>; fetchedAt: number };
 let basketCache: UsdtBasketCache | null = null;
 
 /**
- * 1 USDT → N units for common display currencies (from market USDT basket).
- * Always includes USDT:1 and PKR from dedicated resolver when needed.
+ * 1 USDT → N units. Member panel: auto=false → admin Settings rate only.
+ * auto=true (admin): may fill other currencies from market; PKR still admin fallback.
  */
-export async function resolveUsdtFxTable(fallbackPkr: number, auto = true): Promise<Record<string, number>> {
-  const pkr = await resolveUsdtToPkrRate(fallbackPkr, auto);
-  const base: Record<string, number> = { USDT: 1, USD: 1, PKR: pkr };
+export async function resolveUsdtFxTable(fallbackPkr: number, auto = false): Promise<Record<string, number>> {
+  const base = adminUsdtFxTable(fallbackPkr);
+  if (!auto) return base;
+
+  const pkr = base.PKR;
 
   if (basketCache && Date.now() - basketCache.fetchedAt < TTL_MS) {
     return { ...base, ...basketCache.rates, PKR: pkr };
@@ -129,7 +137,8 @@ export async function resolveUsdtFxTable(fallbackPkr: number, auto = true): Prom
         rates.USD = 1;
       }
       basketCache = { rates, fetchedAt: Date.now() };
-      return { ...base, ...rates, PKR: Number(rates.PKR) > 0 ? Number(rates.PKR.toFixed(2)) : pkr };
+      // PKR always follows admin fallback (never jump on member refresh from market basket).
+      return { ...base, ...rates, PKR: pkr };
     } catch {
       /* next */
     }

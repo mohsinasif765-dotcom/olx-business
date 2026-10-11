@@ -62,3 +62,32 @@ export function todayProfitUsdt(input: {
   const total = accruedProfitUsdt({ ...input, now });
   return Math.min(today, daily, total);
 }
+
+export function termEndMs(startedAt?: string, term?: unknown) {
+  const days = parseTermDays(term) || 90;
+  const start = Date.parse(String(startedAt || ""));
+  if (!Number.isFinite(start)) return 0;
+  return start + days * 24 * 60 * 60 * 1000;
+}
+
+/** Term finished (90 days etc.) — Claim becomes available. */
+export function isTermMatured(input: { startedAt?: string; term?: unknown; now?: number }) {
+  const end = termEndMs(input.startedAt, input.term);
+  if (!end) return false;
+  return (input.now ?? Date.now()) >= end;
+}
+
+/** Accrued not yet paid to wallet. */
+export function claimableProfitUsdt(input: {
+  returns: unknown;
+  term: unknown;
+  earnedTotal?: number;
+  paidTotal?: number;
+  lastPayoutAt?: string;
+  startedAt?: string;
+  now?: number;
+}) {
+  const accrued = accruedProfitUsdt(input);
+  const paid = Number(input.paidTotal) || 0;
+  return Math.max(0, Number((accrued - paid).toFixed(4)));
+}

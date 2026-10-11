@@ -47,9 +47,10 @@ export function usePackageFx() {
       const nextCode = String(fromMode || data.displayCurrency || "PKR").toUpperCase();
       setCode(nextCode);
       setWalletMode(mode === "usdt" || mode === "dual" || mode === "pkr" ? mode : "pkr");
+      // Always pin PKR to admin Settings rate — never a live/market override.
       const pkr = Number(data.usdtToPkrRate) || 280;
       const table = data.usdtFx && typeof data.usdtFx === "object" ? data.usdtFx : defaultUsdtFx(pkr);
-      setFx({ ...defaultUsdtFx(pkr), ...table, PKR: Number(table.PKR) || pkr, USDT: 1 });
+      setFx({ ...defaultUsdtFx(pkr), ...table, PKR: pkr, USDT: 1, USD: 1 });
     }
   }, []);
 

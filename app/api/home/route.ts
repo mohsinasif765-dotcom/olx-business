@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveMemberDisplayCurrency } from "@/lib/currencies";
 import { readCoins, readSettings, readWithdraws } from "@/lib/server/db-tables";
-import { resolveUsdtFxTable } from "@/lib/server/live-fx";
+import { adminUsdtFxTable } from "@/lib/server/live-fx";
 import { fillWithdrawLogs } from "@/lib/withdraw-logs";
 import { stripDemoRows } from "@/lib/server/strip-demo";
 import { zuvoAdmin } from "@/lib/zuvo";
@@ -71,11 +71,9 @@ export async function GET(request: Request) {
       prefer,
     });
     const walletMode = settings?.walletMode || "pkr";
-    const usdtFx = await resolveUsdtFxTable(
-      Number(settings?.usdtToPkrRate) || 280,
-      settings?.usdtRateAuto !== false,
-    );
-    const usdtToPkrRate = Number(usdtFx.PKR) || 280;
+    // Member PKR ≈ always uses admin-saved rate (never live market).
+    const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
+    const usdtFx = adminUsdtFxTable(usdtToPkrRate);
 
     const logs = fillWithdrawLogs(
       stripDemoRows(withdraws)

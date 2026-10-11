@@ -17,7 +17,7 @@ import {
   readTransfers,
   readWithdraws,
 } from "@/lib/server/db-tables";
-import { resolveUsdtFxTable, resolveUsdtToPkrRate } from "@/lib/server/live-fx";
+import { adminUsdtFxTable } from "@/lib/server/live-fx";
 
 export type CmsPage = { slug: string; title: string; body: string };
 export type FaqItem = { id: string; tab: string; title: string; body: string; enabled?: boolean };
@@ -62,10 +62,9 @@ export async function readSite() {
         }));
   const walletMode = normalizeWalletMode(settings?.walletMode);
   const displayCurrency = pickDisplayCurrency(coins, walletMode);
-  const savedRate = Number(settings?.usdtToPkrRate) || 280;
-  const autoFx = settings?.usdtRateAuto !== false;
-  const usdtFx = await resolveUsdtFxTable(savedRate, autoFx);
-  const usdtToPkrRate = Number(usdtFx.PKR) || (await resolveUsdtToPkrRate(savedRate, autoFx));
+  // Member display: admin Settings USDT→PKR only (no live market).
+  const usdtToPkrRate = Number(settings?.usdtToPkrRate) || 280;
+  const usdtFx = adminUsdtFxTable(usdtToPkrRate);
   // Fund / withdraw rails follow admin Currency mode (PKR | USDT | dual).
   const liveCoins = filterCoinsByWalletMode(coins, walletMode).map((c) => ({
     id: String(c.id),

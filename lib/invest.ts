@@ -15,6 +15,7 @@ export type CarHolding = {
   status: "active" | "ended";
   startedAt: string;
   earnedTotal?: number;
+  paidTotal?: number;
   lastPayoutAt?: string;
 };
 
@@ -60,6 +61,30 @@ async function buyCatalogPackage(planId: string, catalog: "car" | "shop") {
       return { ok: false as const, error: (data.error || "required") as string, need: data.need };
     }
     return { ok: true as const };
+  } catch {
+    return { ok: false as const, error: "required" as const };
+  }
+}
+
+export async function claimHoldingProfit(holdingId: string) {
+  const account = getSessionAccount();
+  if (!account) return { ok: false as const, error: "login" as const };
+  try {
+    const res = await fetch("/api/invest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account, action: "claim", holdingId }),
+    });
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      amount?: number;
+      invest?: number;
+    };
+    if (!res.ok || !data.ok) {
+      return { ok: false as const, error: (data.error || "required") as string };
+    }
+    return { ok: true as const, amount: Number(data.amount) || 0, invest: data.invest };
   } catch {
     return { ok: false as const, error: "required" as const };
   }

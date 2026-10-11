@@ -48,6 +48,7 @@ create table if not exists public.car_holdings (
   status text not null default 'active',
   started_at timestamptz not null default now(),
   earned_total numeric not null default 0,
+  paid_total numeric not null default 0,
   last_payout_at timestamptz
 );
 
@@ -77,6 +78,7 @@ create table if not exists public.shop_holdings (
   status text not null default 'active',
   started_at timestamptz not null default now(),
   earned_total numeric not null default 0,
+  paid_total numeric not null default 0,
   last_payout_at timestamptz
 );
 

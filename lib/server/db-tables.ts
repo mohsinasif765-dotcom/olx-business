@@ -103,8 +103,10 @@ export type HoldingRow = {
   image: string;
   status: "active" | "ended";
   startedAt: string;
-  /** Accrued yield credited to invest wallet (USDT). */
+  /** Accrued yield on the package (USDT) — not in wallet until Claim. */
   earnedTotal: number;
+  /** Amount already paid to invest wallet via Claim (USDT). */
+  paidTotal: number;
   lastPayoutAt: string;
 };
 export type AuditRow = { id: string; at: string; actor: string; action: string; target: string; amount?: string };
@@ -283,6 +285,7 @@ export function mapHolding(row: Record<string, unknown>): HoldingRow {
     status: row.status === "ended" ? "ended" : "active",
     startedAt: started,
     earnedTotal: money(row.earned_total ?? row.earnedTotal),
+    paidTotal: money(row.paid_total ?? row.paidTotal),
     lastPayoutAt: String(row.last_payout_at || row.lastPayoutAt || started || ""),
   };
 }
@@ -302,6 +305,7 @@ export function holdingToRow(h: HoldingRow) {
     status: h.status,
     started_at: h.startedAt,
     earned_total: money(h.earnedTotal),
+    paid_total: money(h.paidTotal),
     last_payout_at: h.lastPayoutAt || h.startedAt,
   };
 }
@@ -656,7 +660,7 @@ export async function readHoldings(account?: string) {
 
 function holdingToRowLegacy(h: HoldingRow) {
   const full = holdingToRow(h);
-  const { earned_total: _e, last_payout_at: _l, ...rest } = full;
+  const { earned_total: _e, last_payout_at: _l, paid_total: _p, ...rest } = full;
   return rest;
 }
 
@@ -665,7 +669,12 @@ async function upsertHoldingTable(table: "car_holdings" | "shop_holdings", row: 
   const { error } = await db().from(table).upsert(full);
   if (!error) return;
   const msg = String(error.message || "");
-  if (msg.includes("earned_total") || msg.includes("last_payout_at")) {
+  if (msg.includes("paid_total")) {
+    const { paid_total: _p, ...noPaid } = full;
+    const { error: retryPaid } = await db().from(table).upsert(noPaid);
+    if (!retryPaid) return;
+  }
+  if (msg.includes("earned_total") || msg.includes("last_payout_at") || msg.includes("paid_total")) {
     const { error: retry } = await db().from(table).upsert(holdingToRowLegacy(row));
     if (retry) throw retry;
     return;

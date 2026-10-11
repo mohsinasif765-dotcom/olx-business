@@ -97,6 +97,7 @@ export async function buyPackage(input: { account: string; planId: string; catal
     status: "active",
     startedAt,
     earnedTotal: 0,
+    paidTotal: 0,
     lastPayoutAt: startedAt,
   };
   if (catalog === "shop") await insertShopHolding(holding);

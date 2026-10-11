@@ -16,3 +16,9 @@ where last_payout_at is null;
 update public.shop_holdings
 set last_payout_at = coalesce(last_payout_at, started_at)
 where last_payout_at is null;
+
+-- Claim-at-maturity paid tracker
+alter table public.car_holdings
+  add column if not exists paid_total numeric not null default 0;
+alter table public.shop_holdings
+  add column if not exists paid_total numeric not null default 0;

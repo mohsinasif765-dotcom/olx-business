@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { holdingImageFallback, isShopKind, normalizeHoldingImage } from "@/lib/holding-image";
-import { type CarHolding, loadGarage } from "@/lib/invest";
+import { claimHoldingProfit, type CarHolding, loadGarage } from "@/lib/invest";
 import {
   accruedProfitUsdt,
+  claimableProfitUsdt,
   hourlyReturnUsdt,
+  isTermMatured,
   parseDailyReturnUsdt,
   todayProfitUsdt,
 } from "@/lib/package-yield";
@@ -35,21 +37,24 @@ export function MiningPoolScreen() {
   const [ready, setReady] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+
+  function refresh() {
+    void loadGarage().then((data) => {
+      setAccount(data.account);
+      setHoldings(
+        data.holdings.map((row) => ({
+          ...row,
+          image: normalizeHoldingImage(row),
+        }))
+      );
+      setInvest(data.wallets.invest);
+      setReady(true);
+    });
+  }
 
   useEffect(() => {
-    function refresh() {
-      void loadGarage().then((data) => {
-        setAccount(data.account);
-        setHoldings(
-          data.holdings.map((row) => ({
-            ...row,
-            image: normalizeHoldingImage(row),
-          }))
-        );
-        setInvest(data.wallets.invest);
-        setReady(true);
-      });
-    }
     refresh();
     const poll = window.setInterval(refresh, 60_000);
     const clock = window.setInterval(() => setTick((n) => n + 1), 30_000);
@@ -59,9 +64,25 @@ export function MiningPoolScreen() {
     };
   }, []);
 
-  const active = holdings.filter((row) => row.status !== "ended");
-  const hero = active[0];
+  const visible = holdings.filter((row) => row.status !== "ended");
+  const hero = visible[0];
   const heroSrc = hero ? normalizeHoldingImage(hero) : "";
+
+  async function onClaim(holdingId: string) {
+    setClaimingId(holdingId);
+    setNote("");
+    const result = await claimHoldingProfit(holdingId);
+    setClaimingId(null);
+    if (!result.ok) {
+      if (result.error === "early") setNote(t.claimLocked);
+      else if (result.error === "claimed") setNote(t.claimDone);
+      else setNote(t.claimLocked);
+      return;
+    }
+    if (typeof result.invest === "number") setInvest(result.invest);
+    setNote(`${t.claimDone} ${fromUsdt(result.amount)}`);
+    refresh();
+  }
 
   return (
     <div className="star-field">
@@ -108,9 +129,16 @@ export function MiningPoolScreen() {
         ) : null}
 
         <p className="mb-1 text-center text-[13px] text-white/50">{t.emptyHint}</p>
-        <p className="mb-5 text-center text-[22px] font-semibold">
+        <p className="mb-2 text-center text-[22px] font-semibold">
           {ready ? `${cash} ${invest.toFixed(2)}` : "…"}
         </p>
+        <p className="mb-5 text-center text-[11px] text-white/40">{t.claimHint}</p>
+
+        {note ? (
+          <p className="mb-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-[12px] text-[#9ee7ff]">
+            {note}
+          </p>
+        ) : null}
 
         {settings.packagesOn ? (
           <div className="mb-5 grid grid-cols-2 gap-2">
@@ -136,10 +164,10 @@ export function MiningPoolScreen() {
                 Login
               </Link>
             </p>
-          ) : active.length === 0 ? (
+          ) : visible.length === 0 ? (
             <p className="px-1 text-[13px] text-white/50">No active packages yet. Choose a car or shop package.</p>
           ) : (
-            active.map((plan) => {
+            visible.map((plan) => {
               const src = normalizeHoldingImage(plan);
               const daily = parseDailyReturnUsdt(plan.returns);
               const hourly = hourlyReturnUsdt(daily);
@@ -147,12 +175,17 @@ export function MiningPoolScreen() {
                 returns: plan.returns,
                 term: plan.term,
                 earnedTotal: plan.earnedTotal,
+                paidTotal: plan.paidTotal,
                 lastPayoutAt: plan.lastPayoutAt,
                 startedAt: plan.startedAt,
               };
               void tick;
               const today = todayProfitUsdt(yieldInput);
               const total = accruedProfitUsdt(yieldInput);
+              const claimable = claimableProfitUsdt(yieldInput);
+              const matured = isTermMatured({ startedAt: plan.startedAt, term: plan.term });
+              const canClaim = matured && claimable > 0;
+              const busy = claimingId === plan.id;
               return (
                 <article key={plan.id} className="car-card">
                   <div className="car-photo bg-white/5" style={{ height: 120 }}>
@@ -193,6 +226,24 @@ export function MiningPoolScreen() {
                     <p className="mt-1 text-[11px] text-white/35">
                       {t.dailyIncome} {money(plan.returns)}
                     </p>
+                    <button
+                      type="button"
+                      disabled={!canClaim || busy}
+                      onClick={() => void onClaim(plan.id)}
+                      className={`mt-3 w-full rounded-xl py-2.5 text-[13px] font-semibold transition ${
+                        canClaim && !busy
+                          ? "bg-[#3dff9a] text-[#062816]"
+                          : "cursor-not-allowed bg-white/10 text-white/40"
+                      }`}
+                    >
+                      {busy
+                        ? t.loading
+                        : canClaim
+                          ? `${t.claimProfit} · ${fromUsdt(claimable)}`
+                          : matured
+                            ? t.claimDone
+                            : t.claimLocked}
+                    </button>
                   </div>
                 </article>
               );
