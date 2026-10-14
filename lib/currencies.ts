@@ -200,9 +200,9 @@ export function filterCoinsByWalletMode(
     return fiat.length > 0 ? fiat : list;
   }
   if (walletMode === "usdt") {
-    // Crypto / USDT rails only — if none configured, keep Fund usable with enabled rails
-    const crypto = list.filter(isUsdtRow);
-    return crypto.length > 0 ? crypto : list;
+    // Wallet ledger is USDT, but members may still pay via bank/PKR rails.
+    // Admin approve converts fiat → USDT before crediting invest.
+    return list;
   }
   // dual: every enabled rail
   return list;
