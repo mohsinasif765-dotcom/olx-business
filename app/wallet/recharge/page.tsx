@@ -69,7 +69,18 @@ function RechargeDetail() {
   const [slip, setSlip] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState("");
   const [message, setMessage] = useState("");
+  const [messageOk, setMessageOk] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  function showError(text: string) {
+    setMessageOk(false);
+    setMessage(text);
+  }
+
+  function showSuccess(text: string) {
+    setMessageOk(true);
+    setMessage(text);
+  }
 
   useEffect(() => {
     if (!slip) {
@@ -172,27 +183,27 @@ function RechargeDetail() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!getSessionAccount()) {
-      setMessage(t.login);
+      showError(t.login);
       return;
     }
     if (paused) {
-      setMessage("Funding is paused in admin settings.");
+      showError("Funding is paused in admin settings.");
       return;
     }
     if (!ready) {
-      setMessage(t.payNotReady);
+      showError(t.payNotReady);
       return;
     }
     if (!amount.trim() || Number(amount) <= 0) {
-      setMessage(t.amountRequired);
+      showError(t.amountRequired);
       return;
     }
     if (minN > 0 && Number(amount) < minN) {
-      setMessage(`${t.minAmount} ${minLabel}`);
+      showError(`${t.minAmount} ${minLabel}`);
       return;
     }
     if (!slip) {
-      setMessage(t.slipRequired);
+      showError(t.slipRequired);
       return;
     }
     setBusy(true);
@@ -206,13 +217,13 @@ function RechargeDetail() {
       const upData = (await up.json()) as { url?: string; error?: string };
       if (!up.ok || !upData.url) {
         setBusy(false);
-        setMessage(upData.error || t.slipRequired);
+        showError(upData.error || t.slipRequired);
         return;
       }
       slipUrl = upData.url;
     } catch {
       setBusy(false);
-      setMessage(t.slipRequired);
+      showError(t.slipRequired);
       return;
     }
     const item: HistoryItem = {
@@ -234,7 +245,7 @@ function RechargeDetail() {
       status: "pending",
     });
     setBusy(false);
-    setMessage(t.submittedPending);
+    showSuccess(t.submittedPending);
     setAmount("");
     setHash("");
     setSlip(null);
@@ -450,7 +461,13 @@ function RechargeDetail() {
         </form>
 
         {message ? (
-          <p className="mt-4 rounded-xl bg-[#3dff9a]/10 py-3 text-center text-sm text-[#3dff9a]">
+          <p
+            className={`mt-4 rounded-xl py-3 text-center text-sm ${
+              messageOk
+                ? "bg-[#3dff9a]/10 text-[#3dff9a]"
+                : "bg-[#ff5b7a]/12 text-[#ff8aa0]"
+            }`}
+          >
             {message}
           </p>
         ) : null}
