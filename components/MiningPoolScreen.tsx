@@ -8,7 +8,6 @@ import { holdingImageFallback, isShopKind, normalizeHoldingImage } from "@/lib/h
 import { claimHoldingProfit, type CarHolding, loadGarage } from "@/lib/invest";
 import {
   accruedProfitUsdt,
-  claimableProfitUsdt,
   hourlyReturnUsdt,
   isTermMatured,
   parseDailyReturnUsdt,
@@ -182,9 +181,10 @@ export function MiningPoolScreen() {
               void tick;
               const today = todayProfitUsdt(yieldInput);
               const total = accruedProfitUsdt(yieldInput);
-              const claimable = claimableProfitUsdt(yieldInput);
+              const paidOut = Number(plan.paidTotal) || 0;
               const matured = isTermMatured({ startedAt: plan.startedAt, term: plan.term });
-              const canClaim = matured && claimable > 0;
+              const principal = Number(plan.investAmount) || 0;
+              const canReturnPrincipal = matured && principal > 0;
               const busy = claimingId === plan.id;
               return (
                 <article key={plan.id} className="car-card">
@@ -223,23 +223,27 @@ export function MiningPoolScreen() {
                       <span className="text-white/50">{t.totalProfit}</span>
                       <span className="font-medium text-[#3dff9a]">{fromUsdt(total)}</span>
                     </div>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-[12px]">
+                      <span className="text-white/50">{t.profitToWallet}</span>
+                      <span className="font-medium text-[#9ee7ff]">{fromUsdt(paidOut)}</span>
+                    </div>
                     <p className="mt-1 text-[11px] text-white/35">
                       {t.dailyIncome} {money(plan.returns)}
                     </p>
                     <button
                       type="button"
-                      disabled={!canClaim || busy}
+                      disabled={!canReturnPrincipal || busy}
                       onClick={() => void onClaim(plan.id)}
                       className={`mt-3 w-full rounded-xl py-2.5 text-[13px] font-semibold transition ${
-                        canClaim && !busy
+                        canReturnPrincipal && !busy
                           ? "bg-[#3dff9a] text-[#062816]"
                           : "cursor-not-allowed bg-white/10 text-white/40"
                       }`}
                     >
                       {busy
                         ? t.loading
-                        : canClaim
-                          ? `${t.claimProfit} · ${fromUsdt(claimable)}`
+                        : canReturnPrincipal
+                          ? `${t.principalReturn} · ${fromUsdt(principal)}`
                           : matured
                             ? t.claimDone
                             : t.claimLocked}
