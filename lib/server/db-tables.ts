@@ -154,8 +154,8 @@ function mapWalletMode(value: unknown): WalletMode {
 export function mapSettings(row: Record<string, unknown> | null | undefined): SettingsRow | null {
   if (!row) return null;
   return {
-    siteName: String(row.site_name || "OLX Business"),
-    telegram: String(row.telegram || "https://t.me/olxbusiness_help"),
+    siteName: String(row.site_name || "olbusiness"),
+    telegram: String(row.telegram || "https://t.me/olbusiness_help"),
     whatsapp: String(row.whatsapp || ""),
     defaultLang: String(row.default_lang || "en"),
     registerOn: on(row.register_on),
@@ -183,7 +183,7 @@ export function mapSettings(row: Record<string, unknown> | null | undefined): Se
     aboutStep2: String(row.about_step2 ?? row.aboutStep2 ?? ""),
     aboutStep3: String(row.about_step3 ?? row.aboutStep3 ?? ""),
     aboutVersion: String(row.about_version ?? row.aboutVersion ?? "Version 1.0"),
-    companyName: String(row.company_name ?? row.companyName ?? "OLX Business Digital Ltd"),
+    companyName: String(row.company_name ?? row.companyName ?? "olbusiness Digital Ltd"),
     companyAddress: String(
       row.company_address ??
         row.companyAddress ??

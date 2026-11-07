@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "OLX Business",
-    short_name: "OLX Biz",
+    name: "olbusiness",
+    short_name: "olbusiness",
     description: "Car investment packages, USDT funding, and payouts.",
     start_url: "/",
     scope: "/",

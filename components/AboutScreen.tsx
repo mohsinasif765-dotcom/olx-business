@@ -22,7 +22,7 @@ type AboutContent = {
 
 export function AboutScreen() {
   const { t } = useLanguage();
-  const [siteName, setSiteName] = useState("OLX Business");
+  const [siteName, setSiteName] = useState("olbusiness");
   const [cmsBody, setCmsBody] = useState("");
   const [about, setAbout] = useState<AboutContent>({});
 

@@ -155,7 +155,7 @@ export async function loadTeam(account: string, date = "", level?: string) {
   return {
     invite: me.invite,
     brokerage: me.brokerage,
-    siteName: settings?.siteName || "OLX Business",
+    siteName: settings?.siteName || "olbusiness",
     displayCurrency,
     usdtToPkrRate,
     rates,

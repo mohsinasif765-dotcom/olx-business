@@ -29,7 +29,7 @@ export function MeScreen() {
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [vip, setVip] = useState("Member");
-  const [siteName, setSiteName] = useState("OLX Business");
+  const [siteName, setSiteName] = useState("olbusiness");
   const [telegram, setTelegram] = useState(TELEGRAM_HELP);
   const [flags, setFlags] = useState<MeFlags>({ rechargeOn: true, withdrawOn: true, transferOn: true });
   const [showAccount, setShowAccount] = useState(false);

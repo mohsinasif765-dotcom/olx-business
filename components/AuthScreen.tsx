@@ -45,7 +45,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [siteName, setSiteName] = useState("OLX Business");
+  const [siteName, setSiteName] = useState("olbusiness");
   const [loginOn, setLoginOn] = useState(true);
   const [registerOn, setRegisterOn] = useState(true);
   const router = useRouter();

@@ -80,8 +80,8 @@ export function TeamScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const link = inviteLink(origin || "https://olx-business.app", code);
-  const shareText = encodeURIComponent(`Join OLX Business with my code ${code}`);
+  const link = inviteLink(origin || "https://olbusiness.app", code);
+  const shareText = encodeURIComponent(`Join olbusiness with my code ${code}`);
   const shareUrl = encodeURIComponent(link);
 
   async function copy(kind: "code" | "link", value: string) {

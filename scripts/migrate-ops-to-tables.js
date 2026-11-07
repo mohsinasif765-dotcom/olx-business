@@ -55,8 +55,8 @@ async function main() {
       maintenance=excluded.maintenance, commission_l1=excluded.commission_l1, commission_l2=excluded.commission_l2,
       commission_l3=excluded.commission_l3, updated_at=now()`,
     [
-      s.siteName || "OLX Business",
-      s.telegram || "https://t.me/olxbusiness_help",
+      s.siteName || "olbusiness",
+      s.telegram || "https://t.me/olbusiness_help",
       s.defaultLang || "en",
       on(s.registerOn),
       on(s.loginOn),

@@ -6,9 +6,9 @@ import { PwaRegister } from "@/components/PwaRegister";
 import { LanguageProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "OLX Business",
-  description: "OLX Business car investment packages, recharge, withdraw, and team.",
-  applicationName: "OLX Business",
+  title: "olbusiness",
+  description: "olbusiness car investment packages, recharge, withdraw, and team.",
+  applicationName: "olbusiness",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "OLX Business",
+    title: "olbusiness",
     statusBarStyle: "black-translucent",
   },
 };

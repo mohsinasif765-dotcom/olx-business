@@ -18,7 +18,7 @@ type Act = {
 export function ActivityScreen() {
   const { t } = useLanguage();
   const [tab, setTab] = useState<"live" | "ended">("live");
-  const [siteName, setSiteName] = useState("OLX Business");
+  const [siteName, setSiteName] = useState("olbusiness");
   const [rows, setRows] = useState<Act[]>([]);
 
   useEffect(() => {

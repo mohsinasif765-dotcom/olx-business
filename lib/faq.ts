@@ -64,12 +64,12 @@ export const FAQ_ARTICLES: FaqArticle[] = [
   {
     id: "about-olx",
     tab: "about",
-    title: "What is OLX Business?",
+    title: "What is olbusiness?",
     sections: [
       {
         heading: "Product",
         body: [
-          "OLX Business lets members invest in new and certified used car packages.",
+          "olbusiness lets members invest in new and certified used car packages.",
           "You fund USDT, pick a package, and receive plan returns in USDT.",
         ],
       },

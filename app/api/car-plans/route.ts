@@ -63,14 +63,14 @@ export async function GET(request: Request) {
     return json(request, {
       plans,
       settings: {
-        siteName: String(settings?.siteName || "OLX Business"),
+        siteName: String(settings?.siteName || "olbusiness"),
         packagesOn: settings?.packagesOn !== false,
         maintenance: String(settings?.maintenance || ""),
       },
     }, 200, "no-store");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Zuvo read failed";
-    return json(request, { error: message, plans: [], settings: { siteName: "OLX Business", packagesOn: true, maintenance: "" } }, 200);
+    return json(request, { error: message, plans: [], settings: { siteName: "olbusiness", packagesOn: true, maintenance: "" } }, 200);
   }
 }
 

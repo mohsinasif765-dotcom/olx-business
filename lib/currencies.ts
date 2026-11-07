@@ -168,7 +168,7 @@ export function migrateCurrencies(rows: CurrencyRow[] | undefined | null): Curre
 
 export function payDestination(row: CurrencyRow) {
   const raw = String(row.accountNumber || row.iban || row.address || "").trim();
-  if (!raw || /^OLX-/i.test(raw)) return "";
+  if (!raw || /^(OLX|OLB)-/i.test(raw)) return "";
   return raw;
 }
 

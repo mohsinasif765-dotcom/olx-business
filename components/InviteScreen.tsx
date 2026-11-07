@@ -43,7 +43,7 @@ export function InviteScreen() {
   }, []);
 
   const link = origin ? `${origin}/register?invite=${code}` : `/register?invite=${code}`;
-  const shareText = encodeURIComponent(`Join OLX Business with my code ${code}`);
+  const shareText = encodeURIComponent(`Join olbusiness with my code ${code}`);
   const shareUrl = encodeURIComponent(link);
 
   async function copy(kind: "code" | "link", value: string) {

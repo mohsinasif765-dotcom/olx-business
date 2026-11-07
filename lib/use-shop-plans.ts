@@ -30,7 +30,7 @@ function loadPlans() {
 export function useShopPlans() {
   const [plans, setPlans] = useState<ShopPlan[]>([]);
   const [settings, setSettings] = useState<CarSiteSettings>({
-    siteName: "OLX Business",
+    siteName: "olbusiness",
     packagesOn: true,
     maintenance: "",
   });
@@ -43,7 +43,7 @@ export function useShopPlans() {
       if (Array.isArray(data.plans)) setPlans(data.plans.map(withLocalPhoto));
       if (data.settings) {
         setSettings({
-          siteName: data.settings.siteName || "OLX Business",
+          siteName: data.settings.siteName || "olbusiness",
           packagesOn: data.settings.packagesOn !== false,
           maintenance: data.settings.maintenance || "",
         });

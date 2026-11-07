@@ -132,7 +132,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      siteName: settings?.siteName || "OLX Business",
+      siteName: settings?.siteName || "olbusiness",
       users: stats.users,
       revenue: stats.revenue,
       whatsapp: String(settings?.whatsapp || "").trim(),

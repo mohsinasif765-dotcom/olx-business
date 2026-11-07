@@ -23,8 +23,8 @@ export function HomeScreen() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [wallets, setWallets] = useState({ invest: 0, brokerage: 0 });
   const [packageProfit, setPackageProfit] = useState(0);
-  const [inviteHref, setInviteHref] = useState("https://olx-business.app/register");
-  const [siteName, setSiteName] = useState("OLX Business");
+  const [inviteHref, setInviteHref] = useState("https://olbusiness.app/register");
+  const [siteName, setSiteName] = useState("olbusiness");
   const [whatsapp, setWhatsapp] = useState("");
   const [currency, setCurrency] = useState("PKR");
   const [walletMode, setWalletMode] = useState("pkr");
@@ -155,7 +155,7 @@ export function HomeScreen() {
         <div className="home-banner mb-4 h-[132px] overflow-hidden rounded-2xl">
           <img
             src="/home-banner.jpg"
-            alt="OLX Business"
+            alt="olbusiness"
             className="h-full w-full object-cover object-center"
           />
         </div>
@@ -287,7 +287,7 @@ export function HomeScreen() {
             <div className="flex items-center justify-between gap-1">
               <ShareButton
                 label="X"
-                href={`https://x.com/intent/tweet?text=${encodeURIComponent(`OLX Business ${inviteHref}`)}`}
+                href={`https://x.com/intent/tweet?text=${encodeURIComponent(`olbusiness ${inviteHref}`)}`}
               >
                 <XIcon />
               </ShareButton>
@@ -299,7 +299,7 @@ export function HomeScreen() {
               </ShareButton>
               <ShareButton
                 label="Telegram"
-                href={`https://t.me/share/url?url=${encodeURIComponent(inviteHref)}&text=${encodeURIComponent("OLX Business")}`}
+                href={`https://t.me/share/url?url=${encodeURIComponent(inviteHref)}&text=${encodeURIComponent("olbusiness")}`}
               >
                 <TelegramShareIcon />
               </ShareButton>
@@ -311,7 +311,7 @@ export function HomeScreen() {
               </ShareButton>
               <ShareButton
                 label="WhatsApp"
-                href={`https://wa.me/?text=${encodeURIComponent(`OLX Business ${inviteHref}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`olbusiness ${inviteHref}`)}`}
               >
                 <WhatsAppIcon />
               </ShareButton>

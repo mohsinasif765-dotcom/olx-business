@@ -69,7 +69,7 @@ export function AppDownloadScreen() {
 
         <div className="mb-6 flex flex-col items-center text-center">
           <BrandLogo size={88} variant="splash" />
-          <h2 className="mt-4 text-[22px] font-semibold">OLX Business</h2>
+          <h2 className="mt-4 text-[22px] font-semibold">olbusiness</h2>
           <p className="mt-2 max-w-[300px] text-[13px] leading-5 text-white/55">
             {installed ? t.installHomeReady : t.installHomeAfter}
           </p>

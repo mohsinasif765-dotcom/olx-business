@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     return json(request, {
       plans,
       settings: {
-        siteName: String(settings?.siteName || "OLX Business"),
+        siteName: String(settings?.siteName || "olbusiness"),
         packagesOn: settings?.packagesOn !== false,
         maintenance: String(settings?.maintenance || ""),
       },
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return json(request, {
       error: message,
       plans: [],
-      settings: { siteName: "OLX Business", packagesOn: true, maintenance: "" },
+      settings: { siteName: "olbusiness", packagesOn: true, maintenance: "" },
     });
   }
 }

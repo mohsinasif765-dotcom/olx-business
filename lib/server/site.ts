@@ -24,7 +24,7 @@ export type FaqItem = { id: string; tab: string; title: string; body: string; en
 
 export function telegramHandle(url: string) {
   const match = String(url || "").match(/t\.me\/([^/?]+)/i);
-  return match ? `@${match[1]}` : "@olxbusiness_help";
+  return match ? `@${match[1]}` : "@olbusiness_help";
 }
 
 export async function readSite() {
@@ -41,7 +41,7 @@ export async function readSite() {
       readTransfers(),
       readActivityState(),
     ]);
-  const telegram = String(settings?.telegram || "https://t.me/olxbusiness_help");
+  const telegram = String(settings?.telegram || "https://t.me/olbusiness_help");
   const whatsapp = String(settings?.whatsapp || "").trim();
   const liveFaqs = faqs
     .filter((row) => row.enabled !== false)
@@ -93,7 +93,7 @@ export async function readSite() {
   });
 
   return {
-    siteName: String(settings?.siteName || "OLX Business"),
+    siteName: String(settings?.siteName || "olbusiness"),
     telegram,
     whatsapp,
     handle: telegramHandle(telegram),
@@ -110,7 +110,7 @@ export async function readSite() {
       step2: String(settings?.aboutStep2 || ""),
       step3: String(settings?.aboutStep3 || ""),
       version: String(settings?.aboutVersion || "Version 1.0"),
-      companyName: String(settings?.companyName || "OLX Business Digital Ltd"),
+      companyName: String(settings?.companyName || "olbusiness Digital Ltd"),
       companyAddress: String(
         settings?.companyAddress ||
           "Office 2208, Bay View Tower, Business Bay, Dubai, United Arab Emirates",

@@ -1,5 +1,5 @@
-/* OLX Business service worker — keep fetch handler for Chromium installability */
-const CACHE = "olx-pwa-v10";
+/* olbusiness service worker — keep fetch handler for Chromium installability */
+const CACHE = "olbusiness-pwa-v1";
 const PRECACHE = ["/app-icon-192.png", "/app-icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
@@ -40,7 +40,7 @@ self.addEventListener("fetch", (event) => {
       .catch(async () => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
-        return new Response("OLX Business offline", {
+        return new Response("olbusiness offline", {
           status: 503,
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         });

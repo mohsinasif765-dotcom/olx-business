@@ -61,7 +61,7 @@ export function BrandLogo({
   return (
     <img
       src={src}
-      alt="OLX Business"
+      alt="olbusiness"
       width={size}
       height={size}
       className={`brand-logo shrink-0 ${className}`}

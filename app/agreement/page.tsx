@@ -26,7 +26,7 @@ export default function AgreementPage() {
       <div className="page-enter mx-auto min-h-screen max-w-[420px] px-6 py-8 text-white">
         <BackHeader href="/me" title={title} />
         <div className="mt-6 space-y-5 text-sm leading-7 whitespace-pre-wrap text-white/85">
-          {body || "By creating an account or using OLX Business you accept this agreement."}
+          {body || "By creating an account or using olbusiness you accept this agreement."}
         </div>
         <p className="pt-6">
           <Link href="/privacy" className="text-[#7eb6ff]">
