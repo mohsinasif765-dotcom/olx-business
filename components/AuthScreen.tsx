@@ -303,14 +303,14 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             {isLogin ? (
               <>
                 No account?{" "}
-                <Link href="/register" className="text-[#7eb6ff]">
+                <Link href="/" className="text-[#7eb6ff]">
                   Register
                 </Link>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <Link href="/" className="text-[#7eb6ff]">
+                <Link href="/login" className="text-[#7eb6ff]">
                   Login
                 </Link>
               </>
